@@ -112,14 +112,17 @@ class TrelloBoard(object):
         member_id = str(member_id)
         board = self._board(board_name)
         if not board:
+            logger.debug("Board {} not found".format(board_name))
             return None
 
         if not self._member(member_id, board_name):
+            logger.debug("Member {} does not exist in {}. Adding.".format(member_id, board_name))
             rsvp_list = board.list_lists(list_filter="open")[0]
+            logger.debug("RSVP list for {}: {}".format(board_name, rsvp_list))
             rsvp_list.add_card(name=name, desc=member_id)
 
     def cancel_rsvp(self, member_id, board_name):
-        logger.debug("Cancelling RSVP for members id {} at {}".format(member_id, board_name))
+        logger.debug("Canceling RSVP for members id {} at {}".format(member_id, board_name))
         card = self._member(member_id, board_name)
         logger.debug("Card for member id {} is {}".format(member_id, card))
         canceled = self._label("Canceled", board_name)
