@@ -68,7 +68,9 @@ class Bot(object):
         channel_for_venue = {"STORG Clubhouse": "#storg-south", "STORG Northern Clubhouse": "#storg-north"}
         channel = channel_for_venue.get(venue)
         newcomers = []
+        newcomer_names = []
         cancels = []
+        cancels_names = []
 
         for rsvp in self.storg.rsvps(event_id):
             member_name = rsvp["member"]["name"]
@@ -79,27 +81,29 @@ class Bot(object):
                 logger.error("No key {}".format(event_id))
                 logger.error("Known events: {}".format(self.stored_events))
 
-            if member_name not in known_participants and rsvp["response"] == "yes":
+            if member_id not in known_participants and rsvp["response"] == "yes":
                 self.trello.add_rsvp(name=member_name, member_id=member_id, board_name=event_name)
                 # self.trello.add_contact(member_name=member_name, member_id=member_id)
-                newcomers.append(member_name)
+                newcomers.append(member_id)
+                newcomer_names.append(member_name)
                 sleep(0.2)
-            elif member_name in known_participants and rsvp["response"] == "no":
+            elif member_id in known_participants and rsvp["response"] == "no":
                 self.trello.cancel_rsvp(member_id, board_name=event_name)
-                cancels.append(member_name)
+                cancels.append(member_id)
+                cancels_names.append(member_name)
 
         if newcomers or cancels:
             spots_left = int(event["rsvp_limit"]) - int(event["yes_rsvp_count"]) if event["rsvp_limit"] else 'Unknown'
 
             if newcomers:
                 logger.info("Newcomers found: {}".format(newcomers))
-                self.chat.new_rsvp(', '.join(newcomers), "yes", event_name, spots_left, channel)
+                self.chat.new_rsvp(', '.join(newcomer_names), "yes", event_name, spots_left, channel)
                 self.stored_events[event_id]["participants"] += newcomers
                 logger.debug("Participant list: {}".format(self.stored_events[event_id]["participants"]))
 
             if cancels:
                 logger.info("Cancellations found: {}".format(cancels))
-                self.chat.new_rsvp(', '.join(cancels), "no", event_name, spots_left, channel)
+                self.chat.new_rsvp(', '.join(cancels_names), "no", event_name, spots_left, channel)
                 self.stored_events[event_id]["participants"] = [p for p in self.stored_events[event_id]["participants"]
                                                                 if p not in cancels]
                 logger.debug("Participant list: {}".format(self.stored_events[event_id]["participants"]))
