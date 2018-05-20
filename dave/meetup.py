@@ -25,6 +25,10 @@ class MeetupGroup:
     def next_event(self) -> Event:
         return sorted(self.upcoming_events, key=lambda event: event.time)[0]
 
+    @property
+    def event_names(self):
+        return [e.name for e in self.upcoming_events]
+
     def rsvps(self, event_id: str) -> List[Rsvp]:
         """Get's all RSVPs for a specific event
         https://secure.meetup.com/meetup_api/console/?path=/2/rsvps

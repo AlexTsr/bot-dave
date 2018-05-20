@@ -1,8 +1,6 @@
-from time import sleep
-
 from slackclient import SlackClient
-
 from dave.log import logger
+from time import sleep
 
 
 class Slack(object):
@@ -42,7 +40,7 @@ class Slack(object):
             logger.critical("{}".format(info))
             raise ValueError
 
-    def message(self, content, channel, attachments=None, ts=None):
+    def message(self, content, channel, attachments=None):
         """Sends a simple message containing :content: to :channel:
 
         :param list attachments:
@@ -56,7 +54,6 @@ class Slack(object):
             as_user=True,
             channel=channel,
             text=content,
-            thread_ts=ts,
             attachments=attachments)
 
     def send_attachment(self, message, channel, title=None, colour="#808080", extra_options=None):
@@ -89,19 +86,18 @@ class Slack(object):
         output_list = slack_rtm_output
         if output_list and len(output_list) > 0:
             for output in output_list:
-                if output and 'text' in output and self.at_bot in output['text'] and output["user"] != 'USLACKBOT' and output["ts"]:
+                if output and 'text' in output and self.at_bot in output['text'] and output["user"] != 'USLACKBOT':
                     # return text excluding the @ mention, whitespace removed
                     logger.debug(output)
                     command = ' '.join([t.strip() for t in output["text"].split(self.at_bot) if t])
-                    return command, output["channel"], output["user"], output["ts"]
-                elif output and "channel" in output and "text" in output \
-                        and self._is_im(output["channel"]) and output["user"] != self.bot_id and \
-                        output["user"] != 'USLACKBOT' and output["ts"]:
+                    return command, output["channel"], output["user"]
+                elif output and "channel" in output and "text" in output\
+                        and self._is_im(output["channel"]) and output["user"] != self.bot_id and output["user"] != 'USLACKBOT':
                     logger.debug(output)
-                    return output["text"], output["channel"], output["user"], output["ts"]
+                    return output["text"], output["channel"], output["user"]
                 else:
                     logger.debug(output)
-        return None, None, None, None
+        return None, None, None
 
     def new_event(self, event_name, date, venue, url, channel="#announcements"):
         """
@@ -121,12 +117,11 @@ class Slack(object):
     def new_rsvp(self, names, response, event_name, spots, waitlist=0, channel="#dungeon_lab"):
         """Announces a new RSVP on :channel:
 
-        :param waitlist: Number of people on the waiting list
-        :param names: The names of the ones that RSVPed
-        :param response: "yes" or "no"
-        :param event_name: The event's title
-        :param spots: The number of spots left
-        :param channel: The channel where to make the announcement. Needs a leading #
+        :param names: (str) The names of the ones that RSVPed
+        :param response: (str) "yes" or "no"
+        :param event_name: (str) The event's title
+        :param spots: (str) The number of spots left
+        :param channel: (str) The channel where to make the announcement. Needs a leading #
         :return: None
         """
         colour = "#36a64f" if response == "yes" else "b20000"
@@ -145,10 +140,10 @@ class Slack(object):
         if self.sc.rtm_connect():
             logger.info("Slack RTM connected")
             while True:
-                command, channel, user_id, thread = self._parse_slack_output(self.sc.rtm_read())
-                if command and channel and user_id and thread:
-                    logger.debug("Command found; text: {}, channel: {}, user_id: {}, thread: {}".format(command, channel, user_id, thread))
-                    queue.put((command, channel, user_id, thread))
+                command, channel, user_id = self._parse_slack_output(self.sc.rtm_read())
+                if command and channel and user_id:
+                    logger.debug("command found text: {}, channel: {}, user_id: {}".format(command, channel, user_id))
+                    queue.put((command, channel, user_id))
                 sleep(read_delay)
 
     def userid_info(self, user_id):

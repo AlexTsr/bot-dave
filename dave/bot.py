@@ -13,7 +13,7 @@ from dave.meetup import MeetupGroup
 from dave.slack import Slack
 from dave.store import Store
 from dave.trello_boards import TrelloBoard
-from data_types import Event, Rsvp
+from data_types import Event
 
 sleep_time = int(environ.get('CHECK_TIME', '600'))
 
@@ -36,30 +36,26 @@ class Bot(object):
             self._phrases = json.loads(phrases.read())
         if self.storg.upcoming_events:
             current_event_ids = [e.event_id for e in self.storg.upcoming_events]
-            self.stored_events = self.ds.retrieve_events(current_event_ids)
+            self.events = self.ds.retrieve_events(current_event_ids)
         else:
-            self.stored_events = {}
+            self.events = {}
 
-        logger.debug("Known events: {}".format(self.stored_events))
+        logger.debug("Known events: {}".format(self.events))
         logger.debug("Env: {}".format(environ.items()))
         self.chat.message("Reporting for duty!", environ.get("LAB_CHANNEL_ID"))
-
-    @property
-    def event_names(self):
-        return [e.name for e in self.stored_events.values()]
 
     def _handle_event(self, event: Event):
         cet = timezone(timedelta(0, 3600), "CET")
         # Check for new event
         event_id = event.event_id
-        if event_id not in self.stored_events.keys():
+        if event_id not in self.events.keys():
             logger.info("New event found: {}".format(event.name))
             event_date = int(event.time) / 1000
             event_date = datetime.fromtimestamp(event_date, tz=cet).strftime('%A %B %d %H:%M')
 
             self.chat.new_event(event.name, event_date, event.venue["name"], event.event_url)
             self.trello.create_board(event.name, team_name=self.team_name)
-            self.stored_events[event_id] = event
+            self.events[event_id] = event
 
     def _handle_rsvps(self, event: Event):
         event_id = event.event_id
@@ -77,11 +73,11 @@ class Bot(object):
             member_name = rsvp.member["name"]
             member_id = rsvp.member["member_id"]
             try:
-                event = self.stored_events[event_id]
+                event = self.events[event_id]
                 known_participants = event.participants
             except KeyError:
                 logger.error("Event {} not found in stored events".format(event_id))
-                logger.error("Known events: {}".format(self.stored_events))
+                logger.error("Known events: {}".format(self.events))
                 continue
 
             if member_id not in known_participants and rsvp.response == "yes":
@@ -128,21 +124,21 @@ class Bot(object):
         return resp
 
     def _next_event_info(self):
-        next_event = self.next_event
-        if next_event:
+        try:
+            next_event = self.storg.next_event
             participants = next_event.participants
             event_time = next_event.time / 1000
             date = datetime.fromtimestamp(event_time).strftime('%A %B %d at %H:%M')
             name = next_event.name
             msg = "Our next event is *{}*, on *{}* and " \
                   "there are *{}* people joining".format(name, date, len(participants))
-        else:
+        except IndexError:
             msg = "I can't find any event :disappointed:"
         return msg
 
     def _all_events_info(self):
         msgs = ["Here are our next events.\n"]
-        for event in self.stored_events.values():
+        for event in self.events.values():
             participants = event.participants
             print(participants)
             event_time = event.time / 1000
@@ -160,7 +156,7 @@ class Bot(object):
 
         logger.debug("Request {}".format(request))
         logger.debug("Channel {}".format(channel))
-        events = self.event_names
+        events = self.storg.event_names
         logger.debug("Events {}".format(events))
         event_name = process.extractOne(request, events)[0]
         logger.debug("Chose {}".format(event_name))
@@ -204,7 +200,7 @@ class Bot(object):
 
     def save_events(self):
         logger.debug("Saving events")
-        self.ds.store_events(self.stored_events)
+        self.ds.store_events(self.events)
 
     def monitor_events(self, sleep_time=900):
         while True:
@@ -230,7 +226,7 @@ class Bot(object):
             return None
         self.storg.upcoming_events.sort(key=lambda d: d.time)
         next_id = self.storg.upcoming_events[0].event_id
-        return self.stored_events[next_id]
+        return self.events[next_id]
 
     def table(self, event_name, table_title):
         return self.trello.table(event_name, table_title)
@@ -287,7 +283,6 @@ class Bot(object):
                 self.chat.message("Swallowed exception at conversation: {}".format(e), self.lab_channel_id)
                 logger.error("Swallowed exception at conversation: {}".format(e))
                 raise e
-                exit()
 
     def _add_table(self, command, channel_id):
         title, info = command.split(":", 1)

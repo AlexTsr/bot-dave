@@ -1,12 +1,10 @@
-#!/usr/bin/env python
-
 from functools import lru_cache
 from trello import TrelloClient
 from collections import OrderedDict
 
 from data_types import GameTable
 from dave.log import logger
-from exceptions import NoBoardError
+from dave.exceptions import NoBoardError
 
 
 class TrelloBoard(object):
@@ -151,7 +149,6 @@ class TrelloBoard(object):
             gt.blurb = blurb
             gt.max_players = max_players or "Unknown"
             tables[int(table_number)] = gt
-        print(tables.items())
         return OrderedDict(sorted(tables.items()))
 
     def table(self, board_name: str, table_number: int) -> GameTable:
