@@ -1,7 +1,8 @@
 import json
+from typing import List, Dict
 
 class Member:
-    def __init__(self, name, meetup_id, slack_id, sverok_id, group_id):
+    def __init__(self, name: str, meetup_id: int, slack_id: str, sverok_id: str, group_id: str) -> None:
         self.name = name
         self.group_id = group_id
         self.sverok_id = sverok_id
@@ -52,7 +53,7 @@ class Event:
 
 
 class Rsvp:
-    def __init__(self, venue, response, answers, member, **kwargs):
+    def __init__(self, venue: str, response: str, answers: List[str], member: dict, **kwargs: dict) -> None:
         self.member = member
         self.answers = answers
         self.response = response
@@ -61,8 +62,8 @@ class Rsvp:
 
 
 class GameTable:
-    def __init__(self, number, title, blurb=None, max_players=None, players=None, gm=None, system=None):
-        self.number = number
+    def __init__(self, number: int, title: str, blurb: str = None, max_players: int = None, players: list = None, gm: str = None, system: str = None) -> None:
+        self.number = int(number)
         self._players = []
         self.system = system
         self.gm = gm

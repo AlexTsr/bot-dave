@@ -46,7 +46,7 @@ class Bot(object):
 
     @property
     def event_names(self):
-        return [e["name"] for e in self.stored_events.values()]
+        return [e.name for e in self.stored_events.values()]
 
     def _handle_event(self, event: Event):
         cet = timezone(timedelta(0, 3600), "CET")
@@ -60,7 +60,6 @@ class Bot(object):
             self.chat.new_event(event.name, event_date, event.venue["name"], event.event_url)
             self.trello.create_board(event.name, team_name=self.team_name)
             self.stored_events[event_id] = event
-            # self.stored_events[event_id]["participants"] = []
 
     def _handle_rsvps(self, event: Event):
         event_id = event.event_id
@@ -71,7 +70,8 @@ class Bot(object):
         newcomers = []
         newcomer_names = []
         cancels = []
-        cancels_names = []
+        newcomer_names = []
+        cancel_names = []
 
         for rsvp in self.storg.rsvps(event_id):
             member_name = rsvp.member["name"]
@@ -84,27 +84,28 @@ class Bot(object):
                 logger.error("Known events: {}".format(self.stored_events))
                 continue
 
-            if member_name not in known_participants and rsvp.response == "yes":
+            if member_id not in known_participants and rsvp.response == "yes":
                 self.trello.add_rsvp(name=member_name, member_id=member_id, board_name=event_name)
-                newcomers.append(member_name)
+                newcomers.append(member_id)
+                newcomer_names.append(member_name)
                 sleep(0.2)
-            elif member_name in known_participants and rsvp.response == "no":
+            elif member_id in known_participants and rsvp.response == "no":
                 self.trello.cancel_rsvp(member_id, board_name=event_name)
                 cancels.append(member_id)
-                cancels_names.append(member_name)
+                cancel_names.append(member_name)
 
         if newcomers or cancels:
             spots_left = int(event.rsvp_limit) - int(event.yes_rsvp_count) if event.rsvp_limit else 'Unknown'
 
             if cancels:
                 logger.info("Cancellations found: {}".format(cancels))
-                self.chat.new_rsvp(', '.join(cancels), "no", event_name, spots_left, channel, event.waitlist_count)
+                self.chat.new_rsvp(', '.join(cancel_names), "no", event_name, spots_left, channel, event.waitlist_count)
                 event.participants = [p for p in event.participants if p not in cancels]
                 logger.debug("Participant list: {}".format(event.participants))
 
             if newcomers:
                 logger.info("Newcomers found: {}".format(newcomers))
-                self.chat.new_rsvp(', '.join(newcomers), "yes", event_name, spots_left, channel, event.waitlist_count)
+                self.chat.new_rsvp(', '.join(newcomer_names), "yes", event_name, spots_left, channel, event.waitlist_count)
                 event.participants += newcomers
                 logger.debug("Participant list: {}".format(event.participants))
         else:
@@ -129,13 +130,12 @@ class Bot(object):
     def _next_event_info(self):
         next_event = self.next_event
         if next_event:
-            participants = next_event["participants"]
-            event_time = next_event["time"] / 1000
+            participants = next_event.participants
+            event_time = next_event.time / 1000
             date = datetime.fromtimestamp(event_time).strftime('%A %B %d at %H:%M')
-            name = next_event["name"]
+            name = next_event.name
             msg = "Our next event is *{}*, on *{}* and " \
-                  "there are *{}* people joining:\n{}".format(name, date, len(participants),
-                                                              self._natural_join(participants))
+                  "there are *{}* people joining".format(name, date, len(participants))
         else:
             msg = "I can't find any event :disappointed:"
         return msg
@@ -143,12 +143,13 @@ class Bot(object):
     def _all_events_info(self):
         msgs = ["Here are our next events.\n"]
         for event in self.stored_events.values():
-            participants = event["participants"]
-            event_time = event["time"] / 1000
+            participants = event.participants
+            print(participants)
+            event_time = event.time / 1000
             date = datetime.fromtimestamp(event_time).strftime('%A %B %d at %H:%M')
-            name = event["name"]
+            name = event.name
             msg = "*{}*,\non *{}* with *{}* " \
-                  "people joining:\n{}".format(name, date, len(participants), self._natural_join(participants))
+                  "people joining".format(name, date, len(participants))
             msgs.append(msg)
         return '\n\n'.join(msgs)
 
@@ -192,7 +193,6 @@ class Bot(object):
                 ]
             }
             tables.append(attachment)
-
         return json.dumps(tables)
 
     def check_events(self):
@@ -228,8 +228,8 @@ class Bot(object):
     def next_event(self):
         if not self.storg.upcoming_events:
             return None
-        self.storg.upcoming_events.sort(key=lambda d: d["time"])
-        next_id = self.storg.upcoming_events[0]["id"]
+        self.storg.upcoming_events.sort(key=lambda d: d.time)
+        next_id = self.storg.upcoming_events[0].event_id
         return self.stored_events[next_id]
 
     def table(self, event_name, table_title):
@@ -286,6 +286,8 @@ class Bot(object):
             except Exception as e:
                 self.chat.message("Swallowed exception at conversation: {}".format(e), self.lab_channel_id)
                 logger.error("Swallowed exception at conversation: {}".format(e))
+                raise e
+                exit()
 
     def _add_table(self, command, channel_id):
         title, info = command.split(":", 1)

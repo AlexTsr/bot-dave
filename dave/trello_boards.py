@@ -150,7 +150,8 @@ class TrelloBoard(object):
 
             gt.blurb = blurb
             gt.max_players = max_players or "Unknown"
-            tables[table_number] = gt
+            tables[int(table_number)] = gt
+        print(tables.items())
         return OrderedDict(sorted(tables.items()))
 
     def table(self, board_name: str, table_number: int) -> GameTable:

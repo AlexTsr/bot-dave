@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 from typing import List
 
 import requests
@@ -21,6 +20,10 @@ class MeetupGroup:
         params = {"key": self.api_key, "group_id": self.group_id, "status": "upcoming"}
         upcoming_events = self._get("/2/events", params)
         return [Event(**e) for e in upcoming_events]
+
+    @property
+    def next_event(self) -> Event:
+        return sorted(self.upcoming_events, key=lambda event: event.time)[0]
 
     def rsvps(self, event_id: str) -> List[Rsvp]:
         """Get's all RSVPs for a specific event
