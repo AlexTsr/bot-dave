@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 from slackclient import SlackClient
 from dave.log import logger
 from time import sleep
@@ -58,7 +56,7 @@ class Slack(object):
             text=content,
             attachments=attachments)
 
-    def send_attachment(self, message, channel, title=None, colour = "#808080", extra_options=None):
+    def send_attachment(self, message, channel, title=None, colour="#808080", extra_options=None):
         if not extra_options:
             extra_options = {}
         attachment = [{"pretext": title, "color": colour, "text": message, **extra_options}]
@@ -112,7 +110,7 @@ class Slack(object):
         :return: None
         """
         text = "{}\n{}".format(date, venue)
-        extra_options = {"title": event_name, "title_link": url,}
+        extra_options = {"title": event_name, "title_link": url}
         title = "Woohoo! We've got a new event coming up!"
         self.send_attachment(title=title, message=text, channel=channel, extra_options=extra_options)
 

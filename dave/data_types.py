@@ -1,5 +1,6 @@
 import json
-from typing import List, Dict
+from typing import List
+
 
 class Member:
     def __init__(self, name: str, meetup_id: int, slack_id: str, sverok_id: str, group_id: str) -> None:
@@ -40,7 +41,7 @@ class Event:
              "waitlist_count": self.waitlist_count,
              "yes_rsvp_count": self.yes_rsvp_count,
              "announced": self.announced,
-             "event_url" : self.event_url,
+             "event_url": self.event_url,
              "venue": self.venue,
              "participants": self.participants}
         return json.dumps(d)
@@ -62,7 +63,8 @@ class Rsvp:
 
 
 class GameTable:
-    def __init__(self, number: int, title: str, blurb: str = None, max_players: int = None, players: list = None, gm: str = None, system: str = None) -> None:
+    def __init__(self, number: int, title: str, blurb: str = None, max_players: int = None, players: list = None,
+                 gm: str = None, system: str = None) -> None:
         self.number = int(number)
         self._players = []
         self.system = system
