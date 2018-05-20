@@ -1,13 +1,7 @@
-""" New data types for our special, little needs"""
 import json
-from typing import List
-
 
 class Member:
-    """
-    Class to create Member(name, meetup_id, slack_id, sverok_id, group_id) objects
-    """
-    def __init__(self, name: str, meetup_id: int, slack_id: str = None, sverok_id: str = None, group_id: str = None) -> None:
+    def __init__(self, name, meetup_id, slack_id, sverok_id, group_id):
         self.name = name
         self.group_id = group_id
         self.sverok_id = sverok_id
@@ -20,9 +14,6 @@ class Member:
 
 
 class Event:
-    """
-    Class to create Event() objects
-    """
     def __init__(self, id: int, name: str, time: int, status: str, rsvp_limit: int, waitlist_count: int,
                  yes_rsvp_count: int, announced: bool, event_url: str, venue: dict, participants: list = None,
                  **kwargs: dict) -> None:
@@ -39,11 +30,7 @@ class Event:
         self.event_id = id
         _ = kwargs
 
-    def json(self) -> str:
-        """
-        Serialize object to JSON
-        :return: 
-        """
+    def json(self):
         d = {"event_id": self.event_id,
              "name": self.name,
              "time": self.time,
@@ -52,7 +39,7 @@ class Event:
              "waitlist_count": self.waitlist_count,
              "yes_rsvp_count": self.yes_rsvp_count,
              "announced": self.announced,
-             "event_url": self.event_url,
+             "event_url" : self.event_url,
              "venue": self.venue,
              "participants": self.participants}
         return json.dumps(d)
@@ -65,10 +52,7 @@ class Event:
 
 
 class Rsvp:
-    """
-    Class to create Rsvp objects
-    """
-    def __init__(self, venue: str, response: str, answers: List[str], member: dict, **kwargs: dict) -> None:
+    def __init__(self, venue, response, answers, member, **kwargs):
         self.member = member
         self.answers = answers
         self.response = response
@@ -77,10 +61,8 @@ class Rsvp:
 
 
 class GameTable:
-    """ Class to create GameTable() objects """
-    def __init__(self, number: int, title: str, blurb: str = "", max_players: int = 9999, players: List[str] = None,
-                 gm: str = None, system: str = None) -> None:
-        self.number = int(number)
+    def __init__(self, number, title, blurb=None, max_players=None, players=None, gm=None, system=None):
+        self.number = number
         self._players = []
         self.system = system
         self.gm = gm
@@ -89,18 +71,11 @@ class GameTable:
         self.blurb = blurb
         self.title = title
 
-    def add_player(self, player: str) -> None:
-        """ Add a player name to the table's player list.
-
-        :param player: 
-        """
+    def add_player(self, player):
         self.players.append(player)
 
     @property
-    def players(self) -> List[str]:
-        """ The player names of players joining this table
-        :return: list of player names
-        """
+    def players(self):
         return self._players
 
     @players.setter
@@ -108,7 +83,3 @@ class GameTable:
         if value is None:
             value = []
         self._players = value
-
-    @property
-    def is_full(self):
-        return self.max_players == len(self.players)
