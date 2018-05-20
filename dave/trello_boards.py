@@ -1,10 +1,12 @@
 #!/usr/bin/env python
 
-import yaml
 from functools import lru_cache
 from trello import TrelloClient
 from collections import OrderedDict
+
+from data_types import GameTable
 from dave.log import logger
+from exceptions import NoBoardError
 
 
 class TrelloBoard(object):
@@ -18,30 +20,17 @@ class TrelloBoard(object):
         self._ab_id_cache = {}
         self._ab_name_cache = {}
         self._ab_slack_cache = {}
-        # self._warmup_caches()
 
     @property
-    def boards(self):
+    def boards(self) -> list:
         """All the boards that can be accessed
 
         :return: (Board) list of Board
         """
         return self.tc.list_boards()
 
-    @property
-    def addressbook(self):
-        board = self._board("Address Book")
-        ab = {}
-        for l in board.list_lists(list_filter="open"):
-            for card in l.list_cards():
-                info = yaml.load(card.desc)
-                if info:
-                    ab[info["id"]] = {"name": card.name, "slack": info["slack"]}
-        self._ab_id_cache = ab
-        return ab
-
     @lru_cache(maxsize=128)
-    def _org_id(self, team_name):
+    def _org_id(self, team_name: str) -> str:
         """Get the id of a Trello team
 
         :param team_name:
@@ -56,8 +45,10 @@ class TrelloBoard(object):
     def _board(self, board_name):
         logger.debug("Looking up board {}".format(board_name))
         board = [b for b in self.boards if b.name == board_name]
-        if board:
+        try:
             return board[0]
+        except IndexError as e:
+            raise NoBoardError from e
 
     @lru_cache(maxsize=128)
     def _board_by_url(self, board_url):
@@ -68,10 +59,10 @@ class TrelloBoard(object):
     @lru_cache(maxsize=128)
     def _member(self, member_id, board_name):
         member_id = str(member_id)
-        board = self._board(board_name)
-
-        if not board:
-            return None
+        try:
+            board = self._board(board_name)
+        except NoBoardError:
+            return
 
         for l in board.list_lists(list_filter="open"):
             for card in l.list_cards():
@@ -85,149 +76,85 @@ class TrelloBoard(object):
         if label:
             return label[0]
 
-    def _warmup_caches(self):
-        logger.debug("Warming up the caches")
-        ids = self.addressbook
-        try:
-            for meetup_name, slack_name in [(n["name"], n["slack"]) for n in ids.values()]:
-                _ = self.contact_by_name(meetup_name)
-                if slack_name:
-                    _ = self.contact_by_slack_name(slack_name)
-        except Exception as e:
-            logger.warning("Exception {} when warming up caches".format(e))
-
     def create_board(self, board_name, team_name=None):
         logger.debug("Checking for board {} on {} team".format(board_name, team_name))
         template = self._board("Meetup Template")
-        board = self._board(board_name)
         org_id = self._org_id(team_name=team_name)
-
-        if not board:
-            logger.debug("Adding board {}".format(board_name))
+        try:
+            self._board(board_name)
+        except NoBoardError:
             self.tc.add_board(board_name=board_name, source_board=template, organization_id=org_id,
                               permission_level="public")
 
     def add_rsvp(self, name, member_id, board_name):
         logger.debug("Adding rsvp {} to {}".format(name, board_name))
         member_id = str(member_id)
-        board = self._board(board_name)
-        if not board:
+        try:
+            board = self._board(board_name)
+        except NoBoardError:
             logger.debug("Board {} not found".format(board_name))
-            return None
+            return
 
         if not self._member(member_id, board_name):
-            logger.debug("Member {} does not exist in {}. Adding.".format(member_id, board_name))
+            logger.debug("Member {} does not exist in {}. Adding them.".format(member_id, board_name))
             rsvp_list = board.list_lists(list_filter="open")[0]
             logger.debug("RSVP list for {}: {}".format(board_name, rsvp_list))
             rsvp_list.add_card(name=name, desc=member_id)
 
     def cancel_rsvp(self, member_id, board_name):
         logger.debug("Canceling RSVP for members id {} at {}".format(member_id, board_name))
-        card = self._member(member_id, board_name)
-        logger.debug("Card for member id {} is {}".format(member_id, card))
+        member_card = self._member(member_id, board_name)
+        logger.debug("Card for member id {} is {}".format(member_id, member_card))
         canceled = self._label("Canceled", board_name)
         logger.debug("Canceled tag is {}".format(canceled))
-        if card:
-            card.add_label(canceled)
+        if member_card:
+            member_card.add_label(canceled)
 
     def tables_detail(self, board_name):
         tables = {}
-        board = self._board(board_name)
         info_card = None
-        if not board:
-            return None
-        for table in board.list_lists(list_filter="open"):
-            names = []
-            title = table.name if not table.name.startswith("RSVP") else "~ without a table ~"
-            for card in table.list_cards():
+        try:
+            board = self._board(board_name)
+        except NoBoardError:
+            return
+
+        for board_list in board.list_lists(list_filter="open"):
+            if board_list.name.startswith("RSVP"):
+                title = "~ without a table ~"
+                table_number = 0
+            else:
+                table_number, title = board_list.name.split(". ", maxsplit=1)
+            gt = GameTable(number=table_number, title=title)
+            for card in board_list.list_cards():
                 if card.name != "Info" and not card.labels:
-                    names.append(card.name)
+                    gt.add_player(card.name)
                 elif card.name == "Info":
                     info_card = card
                 elif card.labels:
                     for label in card.labels:
                         if label.name == "GM":
-                            names.append(card.name + " (GM)")
+                            gt.gm = card.name
                         elif label.name == "Canceled":
-                            names.append(card.name + " (CANCELED)")
+                            continue
                         else:
-                            names.append(card.name)
+                            gt.add_player(card.name)
             if info_card:
                 full_info = info_card.desc.split("Players: ", 1)
                 blurb = full_info[0]
                 if len(full_info) == 2:
-                    players = full_info[1]
+                    max_players = full_info[1]
                 else:
-                    players = ""
+                    max_players = ""
             else:
-                blurb, players = "", ""
+                blurb, max_players = "", ""
 
-            tables[title] = {"members": names, "blurb": blurb}
-            tables[title]["players"] = players or "Unknown"
-        resp = OrderedDict(sorted(tables.items()))
-        return resp
+            gt.blurb = blurb
+            gt.max_players = max_players or "Unknown"
+            tables[table_number] = gt
+        return OrderedDict(sorted(tables.items()))
 
-    def table(self, board_name, list_name):
-        return self.tables_detail(board_name)[list_name]
-
-    def contact_by_name(self, member_name):
-        logger.debug("Checking {}".format(member_name))
-        if self._ab_name_cache.get(member_name):
-            return self._ab_name_cache[member_name]
-        else:
-            board = self._board("Address Book")
-            for l in board.list_lists(list_filter="open"):
-                for card in l.list_cards():
-                    desc = yaml.load(card.desc)
-                    if card.name == member_name and desc["slack"]:
-                        logger.debug("Desc: {}".format(desc))
-                        self._ab_name_cache[member_name] = yaml.load(card.desc)
-                        return self._ab_name_cache[member_name]
-
-    def contact_by_slack_name(self, slack_name):
-        if self._ab_slack_cache.get(slack_name):
-            return self._ab_slack_cache[slack_name]
-        else:
-            board = self._board("Address Book")
-            try:
-                for l in board.list_lists(list_filter="open"):
-                    for card in l.list_cards():
-                        desc = yaml.load(card.desc)
-                        if desc["slack"] == slack_name:
-                            self._ab_slack_cache[slack_name] = {"name": card.name, "id": desc["id"]}
-                            return self._ab_slack_cache[slack_name]
-            except:
-                logger.debug("Nothing found for {}".format(slack_name))
-
-    def contact_by_id(self, member_id):
-        if self._ab_id_cache.get(member_id):
-            return self._ab_id_cache[member_id]
-        else:
-            board = self._board("Address Book")
-            for l in board.list_lists(list_filter="open"):
-                for card in l.list_cards():
-                    info = yaml.load(card.desc)
-                    if info:
-                        if info['id'] == member_id and info["slack"]:
-                            self._ab_id_cache[member_id] = {"name": card.name, "slack": info["slack"]}
-                            return self._ab_id_cache[member_id]
-
-    def add_contact(self, member_name, member_id):
-        member_id = str(member_id)
-        if self._ab_id_cache.get(member_id):
-            return True
-
-        board = self._board("Address Book")
-        ab_list = board.list_lists(list_filter="open")[0]
-        info = yaml.dump({"id": member_id, "slack": None}, default_flow_style=False)
-        no_slack = self._label("NoSlack", "Address Book")
-
-        for card in ab_list.list_cards():
-            desc = yaml.load(card.desc)
-            if desc["id"] == member_id:
-                return True
-
-        ab_list.add_card(name=member_name, desc=info, labels=[no_slack])
+    def table(self, board_name: str, table_number: int) -> GameTable:
+        return self.tables_detail(board_name)[table_number]
 
     def add_table(self, title, info, board_url):
         board = self._board_by_url(board_url)

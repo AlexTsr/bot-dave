@@ -13,6 +13,7 @@ from dave.meetup import MeetupGroup
 from dave.slack import Slack
 from dave.store import Store
 from dave.trello_boards import TrelloBoard
+from data_types import Event, Rsvp
 
 sleep_time = int(environ.get('CHECK_TIME', '600'))
 
@@ -34,7 +35,7 @@ class Bot(object):
         with open("dave/resources/phrases.json", "r") as phrases:
             self._phrases = json.loads(phrases.read())
         if self.storg.upcoming_events:
-            current_event_ids = [e["id"] for e in self.storg.upcoming_events]
+            current_event_ids = [e.event_id for e in self.storg.upcoming_events]
             self.stored_events = self.ds.retrieve_events(current_event_ids)
         else:
             self.stored_events = {}
@@ -47,24 +48,24 @@ class Bot(object):
     def event_names(self):
         return [e["name"] for e in self.stored_events.values()]
 
-    def _handle_event(self, event):
+    def _handle_event(self, event: Event):
         cet = timezone(timedelta(0, 3600), "CET")
         # Check for new event
-        event_id = event["id"]
+        event_id = event.event_id
         if event_id not in self.stored_events.keys():
-            logger.info("New event found: {}".format(event["name"]))
-            event_date = int(event["time"]) / 1000
+            logger.info("New event found: {}".format(event.name))
+            event_date = int(event.time) / 1000
             event_date = datetime.fromtimestamp(event_date, tz=cet).strftime('%A %B %d %H:%M')
 
-            self.chat.new_event(event["name"], event_date, event["venue"]["name"], event["event_url"])
-            self.trello.create_board(event["name"], team_name=self.team_name)
+            self.chat.new_event(event.name, event_date, event.venue["name"], event.event_url)
+            self.trello.create_board(event.name, team_name=self.team_name)
             self.stored_events[event_id] = event
-            self.stored_events[event_id]["participants"] = []
+            # self.stored_events[event_id]["participants"] = []
 
-    def _handle_rsvps(self, event):
-        event_id = event["id"]
-        event_name = event["name"]
-        venue = event["venue"]["name"]
+    def _handle_rsvps(self, event: Event):
+        event_id = event.event_id
+        event_name = event.name
+        venue = event.venue["name"]
         channel_for_venue = {"STORG Clubhouse": "#storg-south", "STORG Northern Clubhouse": "#storg-north"}
         channel = channel_for_venue.get(venue)
         newcomers = []
@@ -73,40 +74,39 @@ class Bot(object):
         cancels_names = []
 
         for rsvp in self.storg.rsvps(event_id):
-            member_name = rsvp["member"]["name"]
-            member_id = rsvp["member"]["member_id"]
+            member_name = rsvp.member["name"]
+            member_id = rsvp.member["member_id"]
             try:
-                known_participants = self.stored_events[event_id]["participants"]
+                event = self.stored_events[event_id]
+                known_participants = event.participants
             except KeyError:
-                logger.error("No key {}".format(event_id))
+                logger.error("Event {} not found in stored events".format(event_id))
                 logger.error("Known events: {}".format(self.stored_events))
+                continue
 
-            if member_id not in known_participants and rsvp["response"] == "yes":
+            if member_name not in known_participants and rsvp.response == "yes":
                 self.trello.add_rsvp(name=member_name, member_id=member_id, board_name=event_name)
-                # self.trello.add_contact(member_name=member_name, member_id=member_id)
-                newcomers.append(member_id)
-                newcomer_names.append(member_name)
+                newcomers.append(member_name)
                 sleep(0.2)
-            elif member_id in known_participants and rsvp["response"] == "no":
+            elif member_name in known_participants and rsvp.response == "no":
                 self.trello.cancel_rsvp(member_id, board_name=event_name)
                 cancels.append(member_id)
                 cancels_names.append(member_name)
 
         if newcomers or cancels:
-            spots_left = int(event["rsvp_limit"]) - int(event["yes_rsvp_count"]) if event["rsvp_limit"] else 'Unknown'
-
-            if newcomers:
-                logger.info("Newcomers found: {}".format(newcomers))
-                self.chat.new_rsvp(', '.join(newcomer_names), "yes", event_name, spots_left, channel)
-                self.stored_events[event_id]["participants"] += newcomers
-                logger.debug("Participant list: {}".format(self.stored_events[event_id]["participants"]))
+            spots_left = int(event.rsvp_limit) - int(event.yes_rsvp_count) if event.rsvp_limit else 'Unknown'
 
             if cancels:
                 logger.info("Cancellations found: {}".format(cancels))
-                self.chat.new_rsvp(', '.join(cancels_names), "no", event_name, spots_left, channel)
-                self.stored_events[event_id]["participants"] = [p for p in self.stored_events[event_id]["participants"]
-                                                                if p not in cancels]
-                logger.debug("Participant list: {}".format(self.stored_events[event_id]["participants"]))
+                self.chat.new_rsvp(', '.join(cancels), "no", event_name, spots_left, channel, event.waitlist_count)
+                event.participants = [p for p in event.participants if p not in cancels]
+                logger.debug("Participant list: {}".format(event.participants))
+
+            if newcomers:
+                logger.info("Newcomers found: {}".format(newcomers))
+                self.chat.new_rsvp(', '.join(newcomers), "yes", event_name, spots_left, channel, event.waitlist_count)
+                event.participants += newcomers
+                logger.debug("Participant list: {}".format(event.participants))
         else:
             logger.info("No changes for {}".format(event_name))
 
@@ -168,37 +168,35 @@ class Bot(object):
 
         tables = []
 
-        for table, details in table_info.items():
-            color = "b20000" if table.lower().endswith("full") else "#36a64f"
-            if detail and table[0].isdigit():
-                text = details["blurb"]
-                title = "Joining ({} out of {} max)".format(len(details["members"]) - 1, details["players"])
-            elif table[0].isdigit():
+        for table_number, table in table_info.items():
+            color = "b20000" if table.max_players == len(table.players) else "#36a64f"
+            if detail and table.number !=0:
+                text = table.blurb
+                title = "Joining ({} out of {} max)".format(len(table.players), table.max_players)
+            elif table_number != 0:
                 text = "_Ask *table {}* to get details for this table " \
-                       "or *detailed table status* to get details for all tables_".format(table[0])
-                title = "Joining ({} out of {} max)".format(len(details["members"]) - 1, details["players"])
+                       "or *detailed table status* to get details for all tables_".format(table_number)
+                title = "Joining ({} out of {} max)".format(len(table.players), table.max_players)
             else:
                 text = ""
-                title = "{} left".format(len(details["members"]))
+                title = "{} left".format(len(table.players))
                 color = ""
 
             attachment = {
-                "title": table.upper(),
+                "title": table.title.upper(),
                 "text": text,
                 "color": color,
                 "fields": [
                     {"title": title,
-                     "value": ', '.join(details["members"])}
+                     "value": ', '.join(table.players)}
                 ]
             }
-            if not table_number or table.startswith(str(table_number)):
-                tables.append(attachment)
+            tables.append(attachment)
 
         return json.dumps(tables)
 
     def check_events(self):
         logger.info("Checking for event updates")
-        self.storg.update_upcoming_events()
         for event in self.storg.upcoming_events:
             self._handle_event(event)
             self._handle_rsvps(event)
@@ -215,6 +213,7 @@ class Bot(object):
             except Exception as e:
                 self.chat.message("Swallowed exception at check_events: {}".format(e), self.lab_channel_id)
                 logger.error("Swallowed exception at check_events: {}".format(e))
+                raise e
             self.save_events()
             sleep(sleep_time)
 
@@ -224,6 +223,7 @@ class Bot(object):
     def respond(self, response, channel, attachments=None):
         self.chat.message(content=response, channel=channel, attachments=attachments)
 
+    # TODO: Move to MeetupGroup
     @property
     def next_event(self):
         if not self.storg.upcoming_events:
@@ -234,15 +234,6 @@ class Bot(object):
 
     def table(self, event_name, table_title):
         return self.trello.table(event_name, table_title)
-
-    def _user_info(self, slack_name):
-        info = self.trello.contact_by_slack_name(slack_name)
-        if not info:
-            return "I don't know :disappointed:"
-        meetup_username = info["name"]
-        meetup_id = info["id"]
-        profile_url = "https://www.meetup.com/Stockholm-Roleplaying-Guild/members/{}/".format(meetup_id)
-        return "{} is known on Meetup as *{}*: {}".format(slack_name, meetup_username, profile_url)
 
     def conversation(self, task_queue):
         unknown_responses = self._phrases["responses"]["unknown"]
@@ -278,9 +269,6 @@ class Bot(object):
                     response = self._all_events_info()
                 elif "thanks" in command.lower() or "thank you" in command.lower():
                     response = random.choice(self._phrases["responses"]["thanks"])
-                elif "who is" in command.lower():
-                    slack_name = command.split("who is")[-1].strip("?").strip()
-                    response = self._user_info(slack_name)
                 elif command.lower().startswith("what can you do") or command.lower() == "man":
                     response = self._phrases["responses"]["help"]
                 elif "admin info" in command.lower():

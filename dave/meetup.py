@@ -1,10 +1,12 @@
 #!/usr/bin/env python
+from typing import List
 
 import requests
 from dave.log import logger
+from data_types import Event, Rsvp
 
 
-class MeetupGroup(object):
+class MeetupGroup:
     def __init__(self, api_key, group_id):
         """ Creates a Meetup Group object
         :param api_key: (str) The API key for your Meetup account
@@ -13,27 +15,14 @@ class MeetupGroup(object):
         self.api_url = "http://api.meetup.com"
         self.api_key = api_key
         self.group_id = group_id
-        self._upcoming_events = {}
-        self.update_upcoming_events()
 
     @property
-    def upcoming_events(self):
-        return self._upcoming_events
-
-    @upcoming_events.setter
-    def upcoming_events(self, value):
-        self._upcoming_events = value
-
-    def update_upcoming_events(self):
-        """Gets all upcoming events for the MeetupGroup
-        https://secure.meetup.com/meetup_api/console/?path=/2/events
-
-        :return: (list) A list of dicts, one dict per event
-        """
+    def upcoming_events(self) -> List[Event]:
         params = {"key": self.api_key, "group_id": self.group_id, "status": "upcoming"}
-        self._upcoming_events = self._get("/2/events", params)
+        upcoming_events = self._get("/2/events", params)
+        return [Event(**e) for e in upcoming_events]
 
-    def rsvps(self, event_id):
+    def rsvps(self, event_id: str) -> List[Rsvp]:
         """Get's all RSVPs for a specific event
         https://secure.meetup.com/meetup_api/console/?path=/2/rsvps
 
@@ -41,9 +30,10 @@ class MeetupGroup(object):
         :return: (list) A list of dicts, one dict per RSVP
         """
         params = {"event_id": event_id, "key": self.api_key}
-        return self._get("/2/rsvps", params)
+        rsvps = self._get("/2/rsvps", params)
+        return [Rsvp(**r) for r in rsvps]
 
-    def _get(self, path, params):
+    def _get(self, path: str, params: dict) -> list:
         """ Do a GET towards the Meetup API
         :param path: (str) The path to GET
         :param params: (dict) Extra parameters to pass to the request
@@ -56,4 +46,3 @@ class MeetupGroup(object):
         except Exception:
             logger.debug("GET {} failed: {}".format(self.api_url + path, req.headers))
             return []
-

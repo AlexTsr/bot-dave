@@ -116,7 +116,7 @@ class Slack(object):
         title = "Woohoo! We've got a new event coming up!"
         self.send_attachment(title=title, message=text, channel=channel, extra_options=extra_options)
 
-    def new_rsvp(self, names, response, event_name, spots, channel="#dungeon_lab"):
+    def new_rsvp(self, names, response, event_name, spots, waitlist=0, channel="#dungeon_lab"):
         """Announces a new RSVP on :channel:
 
         :param names: (str) The names of the ones that RSVPed
@@ -127,7 +127,8 @@ class Slack(object):
         :return: None
         """
         colour = "#36a64f" if response == "yes" else "b20000"
-        text = "{} replied {} for the {}\n{} spots left".format(names, response, event_name, spots)
+        waitlist_msg = "\n{} in the waiting list" if waitlist else ""
+        text = "{} replied {} for the {}\n{} spots left{}".format(names, response, event_name, spots, waitlist_msg)
         self.send_attachment(title="New RSVP", message=text, colour=colour, channel=channel)
 
     def rtm(self, queue, read_delay=1):

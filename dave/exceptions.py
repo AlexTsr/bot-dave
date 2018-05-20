@@ -1,0 +1,2 @@
+class NoBoardError(Exception):
+    pass
