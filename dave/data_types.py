@@ -1,8 +1,12 @@
+""" New data types for our special, little needs"""
 import json
 from typing import List
 
 
 class Member:
+    """
+    Class to create Member(name, meetup_id, slack_id, sverok_id, group_id) objects
+    """
     def __init__(self, name: str, meetup_id: int, slack_id: str, sverok_id: str, group_id: str) -> None:
         self.name = name
         self.group_id = group_id
@@ -16,6 +20,9 @@ class Member:
 
 
 class Event:
+    """
+    Class to create Event() objects
+    """
     def __init__(self, id: int, name: str, time: int, status: str, rsvp_limit: int, waitlist_count: int,
                  yes_rsvp_count: int, announced: bool, event_url: str, venue: dict, participants: list = None,
                  **kwargs: dict) -> None:
@@ -32,7 +39,11 @@ class Event:
         self.event_id = id
         _ = kwargs
 
-    def json(self):
+    def json(self) -> str:
+        """
+        Serialize object to JSON
+        :return: 
+        """
         d = {"event_id": self.event_id,
              "name": self.name,
              "time": self.time,
@@ -54,6 +65,9 @@ class Event:
 
 
 class Rsvp:
+    """
+    Class to create Rsvp objects
+    """
     def __init__(self, venue: str, response: str, answers: List[str], member: dict, **kwargs: dict) -> None:
         self.member = member
         self.answers = answers
@@ -63,6 +77,7 @@ class Rsvp:
 
 
 class GameTable:
+    """ Class to create GameTable() objects """
     def __init__(self, number: int, title: str, blurb: str = None, max_players: int = None, players: list = None,
                  gm: str = None, system: str = None) -> None:
         self.number = int(number)
@@ -74,11 +89,18 @@ class GameTable:
         self.blurb = blurb
         self.title = title
 
-    def add_player(self, player):
+    def add_player(self, player: int) -> None:
+        """ Add a player ID to the table's player list.
+
+        :param player: 
+        """
         self.players.append(player)
 
     @property
-    def players(self):
+    def players(self) -> List[int]:
+        """ The player IDs of players joining this table
+        :return: list of player IDs
+        """
         return self._players
 
     @players.setter

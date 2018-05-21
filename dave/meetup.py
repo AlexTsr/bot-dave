@@ -1,13 +1,16 @@
+""" Module to get info from Meetup """
 from typing import List
 
 import requests
-from dave.log import logger
+
 from data_types import Event, Rsvp
+from dave.log import logger
 
 
 class MeetupGroup:
+    """ Creates a Meetup Group object """
     def __init__(self, api_key, group_id):
-        """ Creates a Meetup Group object
+        """
         :param api_key: (str) The API key for your Meetup account
         :param group_id: (int) The group_id of the Meetup Group. Get it at GET /2/groups
         """
@@ -17,16 +20,25 @@ class MeetupGroup:
 
     @property
     def upcoming_events(self) -> List[Event]:
+        """ All the upcoming events
+        :return: a list of all the upcoming events
+        """
         params = {"key": self.api_key, "group_id": self.group_id, "status": "upcoming"}
         upcoming_events = self._get("/2/events", params)
         return [Event(**e) for e in upcoming_events]
 
     @property
     def next_event(self) -> Event:
+        """
+        :return: the next event
+        """
         return sorted(self.upcoming_events, key=lambda event: event.time)[0]
 
     @property
-    def event_names(self):
+    def event_names(self) -> List[str]:
+        """
+        :return: list of all upcoming event names
+        """
         return [e.name for e in self.upcoming_events]
 
     def rsvps(self, event_id: str) -> List[Rsvp]:

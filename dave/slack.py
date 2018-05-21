@@ -1,6 +1,8 @@
-from slackclient import SlackClient
-from dave.log import logger
 from time import sleep
+
+from slackclient import SlackClient
+
+from dave.log import logger
 
 
 class Slack(object):
@@ -91,8 +93,9 @@ class Slack(object):
                     logger.debug(output)
                     command = ' '.join([t.strip() for t in output["text"].split(self.at_bot) if t])
                     return command, output["channel"], output["user"]
-                elif output and "channel" in output and "text" in output\
-                        and self._is_im(output["channel"]) and output["user"] != self.bot_id and output["user"] != 'USLACKBOT':
+                elif output and "channel" in output and "text" in output \
+                        and self._is_im(output["channel"]) and output["user"] != self.bot_id and output[
+                    "user"] != 'USLACKBOT':
                     logger.debug(output)
                     return output["text"], output["channel"], output["user"]
                 else:

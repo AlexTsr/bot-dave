@@ -4,10 +4,10 @@ import json
 from os import environ
 from urllib import parse
 
+import psycopg2
+
 from data_types import Event
 from dave.log import logger
-
-import psycopg2
 
 
 class Store(object):
@@ -25,7 +25,6 @@ class Store(object):
 
     def store_event(self, event_id, data):
         logger.debug("Storing event {}".format(event_id))
-        # data = json.dumps(data)
         sql = "INSERT INTO events (event_id, data) VALUES ('{0}', $${1}$$) ON CONFLICT (event_id) DO UPDATE SET " \
               "data=$${1}$$;".format(event_id, data)
         cur = self.conn.cursor()
