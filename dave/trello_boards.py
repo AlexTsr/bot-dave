@@ -1,5 +1,7 @@
 from functools import lru_cache
-from trello import TrelloClient
+from typing import List, Optional
+
+from trello import TrelloClient, Card, Board
 from collections import OrderedDict
 
 from data_types import GameTable
@@ -20,7 +22,7 @@ class TrelloBoard(object):
         self._ab_slack_cache = {}
 
     @property
-    def boards(self) -> list:
+    def boards(self) -> List[Board]:
         """All the boards that can be accessed
 
         :return: (Board) list of Board
@@ -55,7 +57,7 @@ class TrelloBoard(object):
             return board[0]
 
     @lru_cache(maxsize=128)
-    def _member(self, member_id, board_name):
+    def _member(self, member_id: int, board_name: str) -> Optional[Card]:
         member_id = str(member_id)
         try:
             board = self._board(board_name)
@@ -86,7 +88,6 @@ class TrelloBoard(object):
 
     def add_rsvp(self, name, member_id, board_name):
         logger.debug("Adding rsvp {} to {}".format(name, board_name))
-        member_id = str(member_id)
         try:
             board = self._board(board_name)
         except NoBoardError:

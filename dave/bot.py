@@ -2,18 +2,18 @@
 
 import json
 import random
-
 from datetime import datetime, timezone, timedelta
 from os import environ
 from time import sleep
+
 from fuzzywuzzy import process
 
+from data_types import Event
 from dave.log import logger
 from dave.meetup import MeetupGroup
 from dave.slack import Slack
 from dave.store import Store
 from dave.trello_boards import TrelloBoard
-from data_types import Event
 
 sleep_time = int(environ.get('CHECK_TIME', '600'))
 
@@ -101,7 +101,8 @@ class Bot(object):
 
             if newcomers:
                 logger.info("Newcomers found: {}".format(newcomers))
-                self.chat.new_rsvp(', '.join(newcomer_names), "yes", event_name, spots_left, channel, event.waitlist_count)
+                self.chat.new_rsvp(', '.join(newcomer_names), "yes", event_name, spots_left, channel,
+                                   event.waitlist_count)
                 event.participants += newcomers
                 logger.debug("Participant list: {}".format(event.participants))
         else:
@@ -167,7 +168,7 @@ class Bot(object):
 
         for table_number, table in table_info.items():
             color = "b20000" if table.max_players == len(table.players) else "#36a64f"
-            if detail and table.number !=0:
+            if detail and table.number != 0:
                 text = table.blurb
                 title = "Joining ({} out of {} max)".format(len(table.players), table.max_players)
             elif table_number != 0:
@@ -238,7 +239,8 @@ class Bot(object):
                 command, channel_id, user_id = task_queue.get()
                 attachments = None
                 if command.startswith("help"):
-                    response = "Hold on tight, I'm coming!\nJust kidding!\n\n{}".format(self._phrases["responses"]["help"])
+                    response = "Hold on tight, I'm coming!\nJust kidding!\n\n{}".format(
+                        self._phrases["responses"]["help"])
                 elif command.lower().startswith("table status"):
                     response = "Available tables"
                     attachments = self._tables_info(channel=self.chat.channel_name(channel_id),
@@ -276,7 +278,8 @@ class Bot(object):
                 elif command.lower().startswith("add table"):
                     response = self._add_table(command, channel_id)
                 else:
-                    response = self._check_for_greeting(command) if self._check_for_greeting(command) else random.choice(
+                    response = self._check_for_greeting(command) if self._check_for_greeting(
+                        command) else random.choice(
                         unknown_responses)
                 self.respond(response, channel_id, attachments=attachments)
             except Exception as e:
