@@ -78,7 +78,7 @@ class Rsvp:
 
 class GameTable:
     """ Class to create GameTable() objects """
-    def __init__(self, number: int, title: str, blurb: str = None, max_players: int = None, players: list = None,
+    def __init__(self, number: int, title: str, blurb: str = "", max_players: int = 9999, players: list = None,
                  gm: str = None, system: str = None) -> None:
         self.number = int(number)
         self._players = []
@@ -97,8 +97,8 @@ class GameTable:
         self.players.append(player)
 
     @property
-    def players(self) -> List[int]:
-        """ The player IDs of players joining this table
+    def players(self) -> List[str]:
+        """ The player names of players joining this table
         :return: list of player IDs
         """
         return self._players
@@ -108,3 +108,7 @@ class GameTable:
         if value is None:
             value = []
         self._players = value
+
+    @property
+    def is_full(self):
+        return self.max_players == len(self.players)

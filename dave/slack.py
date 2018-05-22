@@ -94,8 +94,8 @@ class Slack(object):
                     command = ' '.join([t.strip() for t in output["text"].split(self.at_bot) if t])
                     return command, output["channel"], output["user"]
                 elif output and "channel" in output and "text" in output \
-                        and self._is_im(output["channel"]) and output["user"] != self.bot_id and output[
-                    "user"] != 'USLACKBOT':
+                        and self._is_im(output["channel"]) and output["user"] != self.bot_id and \
+                        output["user"] != 'USLACKBOT':
                     logger.debug(output)
                     return output["text"], output["channel"], output["user"]
                 else:
@@ -120,11 +120,12 @@ class Slack(object):
     def new_rsvp(self, names, response, event_name, spots, waitlist=0, channel="#dungeon_lab"):
         """Announces a new RSVP on :channel:
 
-        :param names: (str) The names of the ones that RSVPed
-        :param response: (str) "yes" or "no"
-        :param event_name: (str) The event's title
-        :param spots: (str) The number of spots left
-        :param channel: (str) The channel where to make the announcement. Needs a leading #
+        :param waitlist: Number of people on the waiting list
+        :param names: The names of the ones that RSVPed
+        :param response: "yes" or "no"
+        :param event_name: The event's title
+        :param spots: The number of spots left
+        :param channel: The channel where to make the announcement. Needs a leading #
         :return: None
         """
         colour = "#36a64f" if response == "yes" else "b20000"

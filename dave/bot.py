@@ -14,6 +14,7 @@ from dave.meetup import MeetupGroup
 from dave.slack import Slack
 from dave.store import Store
 from dave.trello_boards import TrelloBoard
+from exceptions import NoBoardError
 
 sleep_time = int(environ.get('CHECK_TIME', '600'))
 
@@ -150,7 +151,7 @@ class Bot(object):
             msgs.append(msg)
         return '\n\n'.join(msgs)
 
-    def _tables_info(self, channel, request=None, detail=False, table_number=None):
+    def _tables_info(self, channel, request=None, detail=False, only_available=False):
         logger.debug("Got {} and {}".format(channel, request))
         if not request and channel:
             request = ' '.join(channel.split("_"))
@@ -162,31 +163,47 @@ class Bot(object):
         event_name = process.extractOne(request, events)[0]
         logger.debug("Chose {}".format(event_name))
 
-        table_info = self.trello.tables_detail(event_name)
+        try:
+            tables_for_event = self.trello.tables_for_event(event_name)
+        except NoBoardError:
+            return "I didn't find anything :disappointed:"
 
         tables = []
 
-        for table_number, table in table_info.items():
-            color = "b20000" if table.max_players == len(table.players) else "#36a64f"
-            if detail and table.number != 0:
+        for table in tables_for_event.values():
+            color = "b20000" if table.is_full else "#36a64f"
+            title = None
+            if only_available and table.is_full:
+                continue
+
+            if detail and table.number != 9999:
+                table_title = "{}. {}".format(table.number, table.title)
                 text = table.blurb
-                title = "Joining ({} out of {} max)".format(len(table.players), table.max_players)
-            elif table_number != 0:
+                joining = "*Joining ({} out of {} max):* _{}(GM)_; {}".format(len(table.players), table.max_players,
+                                                                              table.gm,
+                                                                              self._natural_join(table.players, ' '))
+            elif table.number != 9999:
+                table_title = "{}. {}".format(table.number, table.title)
                 text = "_Ask *table {}* to get details for this table " \
-                       "or *detailed table status* to get details for all tables_".format(table_number)
-                title = "Joining ({} out of {} max)".format(len(table.players), table.max_players)
+                       "or *detailed table status* to get details for all tables_".format(table.number)
+                joining = "*Joining ({} out of {} max):* _{}(GM)_; {}".format(len(table.players), table.max_players,
+                                                                              table.gm,
+                                                                              self._natural_join(table.players, ' '))
             else:
+                table_title = table.title
                 text = ""
                 title = "{} left".format(len(table.players))
                 color = ""
+                joining = self._natural_join(table.players, ' ')
 
             attachment = {
-                "title": table.title.upper(),
+                "title": table_title,
                 "text": text,
                 "color": color,
+                "short": True,
                 "fields": [
                     {"title": title,
-                     "value": ', '.join(table.players)}
+                     "value": joining}
                 ]
             }
             tables.append(attachment)
@@ -203,7 +220,7 @@ class Bot(object):
         logger.debug("Saving events")
         self.ds.store_events(self.events)
 
-    def monitor_events(self, sleep_time=900):
+    def monitor_events(self, sleep_for=900):
         while True:
             try:
                 self.check_events()
@@ -212,7 +229,7 @@ class Bot(object):
                 logger.error("Swallowed exception at check_events: {}".format(e))
                 raise e
             self.save_events()
-            sleep(sleep_time)
+            sleep(sleep_for)
 
     def read_chat(self, tasks):
         self.chat.rtm(tasks)
@@ -242,13 +259,18 @@ class Bot(object):
                     response = "Hold on tight, I'm coming!\nJust kidding!\n\n{}".format(
                         self._phrases["responses"]["help"])
                 elif command.lower().startswith("table status"):
-                    response = "Available tables"
+                    response = "Open tables"
                     attachments = self._tables_info(channel=self.chat.channel_name(channel_id),
-                                                    request=command.split('table status')[-1])
+                                                    request=command.split('table status')[-1], only_available=True)
+                elif command.lower().startswith("all tables"):
+                    response = "All available tables"
+                    attachments = self._tables_info(channel=self.chat.channel_name(channel_id),
+                                                    request=command.split('table status')[-1], only_available=False)
                 elif command.lower().startswith("detailed table status"):
                     response = "Available tables"
                     attachments = self._tables_info(channel=self.chat.channel_name(channel_id),
-                                                    request=command.split('table status')[-1], detail=True)
+                                                    request=command.split('table status')[-1], detail=True,
+                                                    only_available=False)
                 elif command.lower().startswith("table"):
                     full_req = command.split('table')[-1].strip()
                     split_req = full_req.split(" ", 1)
@@ -260,7 +282,7 @@ class Bot(object):
                     logger.debug("Table {}".format(table_number))
                     response = "Details for table {}".format(table_number)
                     attachments = self._tables_info(channel=self.chat.channel_name(channel_id),
-                                                    request=request, detail=True, table_number=table_number)
+                                                    request=request, detail=True)
                 elif "next event" in command.lower() and "events" not in command.lower():
                     response = self._next_event_info()
                 elif "events" in command.lower():

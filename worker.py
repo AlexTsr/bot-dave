@@ -15,6 +15,7 @@ class Worker(mp.Process):
     def run(self):
         self.bot.conversation(self.task_queue)
 
+
 if __name__ == "__main__":
     dave = Bot()
 
