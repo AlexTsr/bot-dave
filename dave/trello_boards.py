@@ -4,7 +4,7 @@ from typing import List, Optional, Dict
 
 from trello import TrelloClient, Card, Board
 
-from data_types import GameTable
+from dave.data_types import GameTable
 from dave.exceptions import NoBoardError
 from dave.log import logger
 

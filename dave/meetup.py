@@ -3,7 +3,7 @@ from typing import List
 
 import requests
 
-from data_types import Event, Rsvp
+from dave.data_types import Event, Rsvp
 from dave.log import logger
 
 

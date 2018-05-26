@@ -6,7 +6,7 @@ from urllib import parse
 
 import psycopg2
 
-from data_types import Event
+from dave.data_types import Event
 from dave.log import logger
 
 
