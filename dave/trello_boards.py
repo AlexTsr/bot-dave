@@ -135,7 +135,10 @@ class TrelloBoard(object):
                 full_info = info_card.desc.split("Players: ", 1)
                 table.blurb = full_info[0]
                 if len(full_info) == 2:
-                    table.max_players = int(full_info[1])
+                    try:
+                        table.max_players = int(full_info[1])
+                    except ValueError:
+                        pass
 
             tables[table_number] = table
         return OrderedDict(sorted(tables.items()))

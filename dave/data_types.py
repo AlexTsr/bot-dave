@@ -7,7 +7,7 @@ class Member:
     """
     Class to create Member(name, meetup_id, slack_id, sverok_id, group_id) objects
     """
-    def __init__(self, name: str, meetup_id: int, slack_id: str, sverok_id: str, group_id: str) -> None:
+    def __init__(self, name: str, meetup_id: int, slack_id: str = None, sverok_id: str = None, group_id: str = None) -> None:
         self.name = name
         self.group_id = group_id
         self.sverok_id = sverok_id
@@ -78,7 +78,7 @@ class Rsvp:
 
 class GameTable:
     """ Class to create GameTable() objects """
-    def __init__(self, number: int, title: str, blurb: str = "", max_players: int = 9999, players: list = None,
+    def __init__(self, number: int, title: str, blurb: str = "", max_players: int = 9999, players: List[str] = None,
                  gm: str = None, system: str = None) -> None:
         self.number = int(number)
         self._players = []
@@ -89,8 +89,8 @@ class GameTable:
         self.blurb = blurb
         self.title = title
 
-    def add_player(self, player: int) -> None:
-        """ Add a player ID to the table's player list.
+    def add_player(self, player: str) -> None:
+        """ Add a player name to the table's player list.
 
         :param player: 
         """
@@ -99,7 +99,7 @@ class GameTable:
     @property
     def players(self) -> List[str]:
         """ The player names of players joining this table
-        :return: list of player IDs
+        :return: list of player names
         """
         return self._players
 
