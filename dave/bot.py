@@ -42,7 +42,7 @@ class Bot(object):
             self.events = {}
         logger.debug("Known events: {}".format(self.events))
         logger.debug("Env: {}".format(environ.items()))
-        self.chat.message("Reporting for duty!", environ.get("LAB_CHANNEL_ID"))
+
 
     def _handle_event(self, event: Event):
         cet = timezone(timedelta(0, 3600), "CET")

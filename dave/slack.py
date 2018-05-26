@@ -1,5 +1,5 @@
+from os import environ
 from time import sleep
-
 from slackclient import SlackClient
 
 from dave.log import logger
@@ -144,6 +144,7 @@ class Slack(object):
         """
         if self.sc.rtm_connect():
             logger.info("Slack RTM connected")
+            self.message("Reporting for duty!", environ.get("LAB_CHANNEL_ID"))
             while True:
                 command, channel, user_id, thread = self._parse_slack_output(self.sc.rtm_read())
                 if command and channel and user_id and thread:
