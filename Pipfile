@@ -5,9 +5,8 @@ verify_ssl = true
 [packages]
 slackclient = "*"
 requests = "*"
-py-trello = "*"
+py-trello = "==0.10.0"
 psycopg2 = "==2.7.3.1"
-pyyaml = "*"
 fuzzywuzzy = "*"
 python-Levenshtein = "*"
 

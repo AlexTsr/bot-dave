@@ -3,9 +3,11 @@
 import json
 from os import environ
 from urllib import parse
-from dave.log import logger
 
 import psycopg2
+
+from data_types import Event
+from dave.log import logger
 
 
 class Store(object):
@@ -23,7 +25,6 @@ class Store(object):
 
     def store_event(self, event_id, data):
         logger.debug("Storing event {}".format(event_id))
-        data = json.dumps(data)
         sql = "INSERT INTO events (event_id, data) VALUES ('{0}', $${1}$$) ON CONFLICT (event_id) DO UPDATE SET " \
               "data=$${1}$$;".format(event_id, data)
         cur = self.conn.cursor()
@@ -49,15 +50,16 @@ class Store(object):
         sql = "SELECT event_id, data FROM events WHERE event_id IN ({});".format(','.join(event_ids))
         cur = self.conn.cursor()
         cur.execute(sql)
-        all_events = cur.fetchall()
-        for event_id, data in all_events:
-            resp[event_id] = json.loads(data)
+        events = cur.fetchall()
+        for event_id, data in events:
+            data = json.loads(data)
+            resp[event_id] = Event(id=event_id, **data)
         return resp
 
     def store_events(self, events):
         logger.debug("Storing events {}".format(events))
         for event_id, data in events.items():
-            self.store_event(event_id, data)
+            self.store_event(event_id, data.json())
 
     def retrieve_all_events(self):
         logger.debug("Retrieving all events {}")
