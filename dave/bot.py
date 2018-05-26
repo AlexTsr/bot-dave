@@ -14,7 +14,7 @@ from dave.meetup import MeetupGroup
 from dave.slack import Slack
 from dave.store import Store
 from dave.trello_boards import TrelloBoard
-from exceptions import NoBoardError
+from dave.exceptions import NoBoardError
 
 sleep_time = int(environ.get('CHECK_TIME', '600'))
 
@@ -128,7 +128,7 @@ class Bot(object):
     def _next_event_info(self):
         try:
             next_event = self.storg.next_event
-            participants = next_event.participants
+            participants = self.events[next_event.event_id].participants
             event_time = next_event.time / 1000
             date = datetime.fromtimestamp(event_time).strftime('%A %B %d at %H:%M')
             name = next_event.name
@@ -139,7 +139,8 @@ class Bot(object):
         return msg
 
     def _all_events_info(self):
-        msgs = ["Here are our next events.\n"]
+        intro = ["Here are our next events.\n"]
+        msgs = []
         for event in self.events.values():
             participants = event.participants
             print(participants)
@@ -149,9 +150,10 @@ class Bot(object):
             msg = "*{}*,\non *{}* with *{}* " \
                   "people joining".format(name, date, len(participants))
             msgs.append(msg)
-        return '\n\n'.join(msgs)
+        if msgs:
+            return '\n\n'.join(intro + msgs)
 
-    def _tables_info(self, channel, request=None, detail=False, only_available=False):
+    def _tables_info(self, channel, request=None, detail=False, only_available=False, table_number=None):
         logger.debug("Got {} and {}".format(channel, request))
         if not request and channel:
             request = ' '.join(channel.split("_"))
@@ -176,35 +178,34 @@ class Bot(object):
             if only_available and table.is_full:
                 continue
 
+            if table_number and table.number != table_number:
+                continue
+
             if detail and table.number != 9999:
                 table_title = "{}. {}".format(table.number, table.title)
                 text = table.blurb
-                joining = "*Joining ({} out of {} max):* _{}(GM)_; {}".format(len(table.players), table.max_players,
-                                                                              table.gm,
+                joining = "*GM:* {}; *Joining ({} out of {} max):* {}".format(table.gm, len(table.players),
+                                                                              table.max_players,
                                                                               self._natural_join(table.players, ' '))
             elif table.number != 9999:
                 table_title = "{}. {}".format(table.number, table.title)
                 text = "_Ask *table {}* to get details for this table " \
                        "or *detailed table status* to get details for all tables_".format(table.number)
-                joining = "*Joining ({} out of {} max):* _{}(GM)_; {}".format(len(table.players), table.max_players,
-                                                                              table.gm,
+                joining = "*GM:* {}; *Joining ({} out of {} max):* {}".format(table.gm, len(table.players), table.max_players,
                                                                               self._natural_join(table.players, ' '))
             else:
                 table_title = table.title
                 text = ""
-                title = "{} left".format(len(table.players))
                 color = ""
-                joining = self._natural_join(table.players, ' ')
+                joining = "*{} left:* {}".format(len(table.players), self._natural_join(table.players, ' '))
 
             attachment = {
                 "title": table_title,
                 "text": text,
                 "color": color,
                 "short": True,
-                "fields": [
-                    {"title": title,
-                     "value": joining}
-                ]
+                "fields": [{"title": title, "value": joining}],
+                "mrkdwn_in": ["text", "pretext", "fields"]
             }
             tables.append(attachment)
         return json.dumps(tables)
@@ -227,15 +228,14 @@ class Bot(object):
             except Exception as e:
                 self.chat.message("Swallowed exception at check_events: {}".format(e), self.lab_channel_id)
                 logger.error("Swallowed exception at check_events: {}".format(e))
-                raise e
             self.save_events()
             sleep(sleep_for)
 
     def read_chat(self, tasks):
         self.chat.rtm(tasks)
 
-    def respond(self, response, channel, attachments=None):
-        self.chat.message(content=response, channel=channel, attachments=attachments)
+    def respond(self, response, channel, attachments=None, thread=None):
+        self.chat.message(content=response, channel=channel, attachments=attachments, ts=thread)
 
     # TODO: Move to MeetupGroup
     @property
@@ -253,19 +253,20 @@ class Bot(object):
         unknown_responses = self._phrases["responses"]["unknown"]
         while True:
             try:
-                command, channel_id, user_id = task_queue.get()
+                command, channel_id, user_id, thread = task_queue.get()
                 attachments = None
                 if command.startswith("help"):
                     response = "Hold on tight, I'm coming!\nJust kidding!\n\n{}".format(
                         self._phrases["responses"]["help"])
+                    thread=None
                 elif command.lower().startswith("table status"):
                     response = "Open tables"
                     attachments = self._tables_info(channel=self.chat.channel_name(channel_id),
-                                                    request=command.split('table status')[-1], only_available=True)
-                elif command.lower().startswith("all tables"):
-                    response = "All available tables"
-                    attachments = self._tables_info(channel=self.chat.channel_name(channel_id),
                                                     request=command.split('table status')[-1], only_available=False)
+                elif command.lower().startswith("available tables"):
+                    response = "Available tables"
+                    attachments = self._tables_info(channel=self.chat.channel_name(channel_id),
+                                                    request=command.split('available tables')[-1], only_available=True)
                 elif command.lower().startswith("detailed table status"):
                     response = "Available tables"
                     attachments = self._tables_info(channel=self.chat.channel_name(channel_id),
@@ -274,7 +275,7 @@ class Bot(object):
                 elif command.lower().startswith("table"):
                     full_req = command.split('table')[-1].strip()
                     split_req = full_req.split(" ", 1)
-                    table_number = split_req[0]
+                    table_number = int(split_req[0])
                     if len(split_req) == 2:
                         request = split_req[1]
                     else:
@@ -282,14 +283,18 @@ class Bot(object):
                     logger.debug("Table {}".format(table_number))
                     response = "Details for table {}".format(table_number)
                     attachments = self._tables_info(channel=self.chat.channel_name(channel_id),
-                                                    request=request, detail=True)
+                                                    request=request, detail=True, table_number=table_number)
                 elif "next event" in command.lower() and "events" not in command.lower():
                     response = self._next_event_info()
+                    thread=None
                 elif "events" in command.lower():
+                    thread = None
                     response = self._all_events_info()
                 elif "thanks" in command.lower() or "thank you" in command.lower():
+                    thread = None
                     response = random.choice(self._phrases["responses"]["thanks"])
                 elif command.lower().startswith("what can you do") or command.lower() == "man":
+                    thread = None
                     response = self._phrases["responses"]["help"]
                 elif "admin info" in command.lower():
                     response = self._phrases["responses"]["admin_info"]
@@ -303,11 +308,10 @@ class Bot(object):
                     response = self._check_for_greeting(command) if self._check_for_greeting(
                         command) else random.choice(
                         unknown_responses)
-                self.respond(response, channel_id, attachments=attachments)
+                self.respond(response, channel_id, attachments=attachments, thread=thread)
             except Exception as e:
                 self.chat.message("Swallowed exception at conversation: {}".format(e), self.lab_channel_id)
                 logger.error("Swallowed exception at conversation: {}".format(e))
-                raise e
 
     def _add_table(self, command, channel_id):
         title, info = command.split(":", 1)
