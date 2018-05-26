@@ -8,7 +8,7 @@ from time import sleep
 
 from fuzzywuzzy import process
 
-from data_types import Event
+from dave.data_types import Event
 from dave.log import logger
 from dave.meetup import MeetupGroup
 from dave.slack import Slack
