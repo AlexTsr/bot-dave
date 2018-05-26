@@ -40,7 +40,6 @@ class Bot(object):
             self.events = self.ds.retrieve_events(current_event_ids)
         else:
             self.events = {}
-
         logger.debug("Known events: {}".format(self.events))
         logger.debug("Env: {}".format(environ.items()))
         self.chat.message("Reporting for duty!", environ.get("LAB_CHANNEL_ID"))
@@ -65,7 +64,6 @@ class Bot(object):
         channel_for_venue = {"STORG Clubhouse": "#storg-south", "STORG Northern Clubhouse": "#storg-north"}
         channel = channel_for_venue.get(venue)
         newcomers = []
-        newcomer_names = []
         cancels = []
         newcomer_names = []
         cancel_names = []
@@ -96,14 +94,14 @@ class Bot(object):
 
             if cancels:
                 logger.info("Cancellations found: {}".format(cancels))
-                self.chat.new_rsvp(', '.join(cancel_names), "no", event_name, spots_left, channel, event.waitlist_count)
+                self.chat.new_rsvp(', '.join(cancel_names), "no", event_name, spots_left, event.waitlist_count, channel)
                 event.participants = [p for p in event.participants if p not in cancels]
                 logger.debug("Participant list: {}".format(event.participants))
 
             if newcomers:
                 logger.info("Newcomers found: {}".format(newcomers))
-                self.chat.new_rsvp(', '.join(newcomer_names), "yes", event_name, spots_left, channel,
-                                   event.waitlist_count)
+                self.chat.new_rsvp(', '.join(newcomer_names), "yes", event_name, spots_left, event.waitlist_count,
+                                   channel)
                 event.participants += newcomers
                 logger.debug("Participant list: {}".format(event.participants))
         else:
