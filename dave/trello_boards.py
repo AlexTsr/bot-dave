@@ -73,6 +73,17 @@ class TrelloBoard(object):
         if label:
             return label[0]
 
+    def participants(self, board_name):
+        board = self._board(board_name)
+        members = []
+        for l in board.list_lists(list_filter="open"):
+            for card in l.list_cards():
+                try:
+                    members.append(int(card.desc))
+                except ValueError:
+                    pass
+        return members
+
     def create_board(self, board_name, team_name=None):
         logger.debug("Checking for board {} on {} team".format(board_name, team_name))
         template = self._board("Meetup Template")

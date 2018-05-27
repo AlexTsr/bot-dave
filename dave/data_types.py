@@ -1,5 +1,4 @@
 """ New data types for our special, little needs"""
-import json
 from typing import List
 
 
@@ -24,9 +23,8 @@ class Event:
     Class to create Event() objects
     """
     def __init__(self, id: int, name: str, time: int, status: str, rsvp_limit: int, waitlist_count: int,
-                 yes_rsvp_count: int, announced: bool, event_url: str, venue: dict, participants: list = None,
+                 yes_rsvp_count: int, announced: bool, event_url: str, venue: dict,
                  **kwargs: dict) -> None:
-        self.participants = participants or []
         self.venue = venue
         self.event_url = event_url
         self.announced = announced
@@ -39,29 +37,11 @@ class Event:
         self.event_id = id
         _ = kwargs
 
-    def json(self) -> str:
-        """
-        Serialize object to JSON
-        :return: 
-        """
-        d = {"event_id": self.event_id,
-             "name": self.name,
-             "time": self.time,
-             "status": self.status,
-             "rsvp_limit": self.rsvp_limit,
-             "waitlist_count": self.waitlist_count,
-             "yes_rsvp_count": self.yes_rsvp_count,
-             "announced": self.announced,
-             "event_url": self.event_url,
-             "venue": self.venue,
-             "participants": self.participants}
-        return json.dumps(d)
-
     def __repr__(self):
         return "Event(event_id={self.event_id}, name='{self.name}', time={self.time}, status='{self.status}', " \
                "rsvp_limit={self.rsvp_limit}, waitlist_count={self.waitlist_count}, yes_rsvp_count={" \
                "self.yes_rsvp_count}, announced={self.announced}, event_url='{self.event_url}', " \
-               "venue={self.venue}, participants={self.participants})".format_map(vars())
+               "venue={self.venue})".format_map(vars())
 
 
 class Rsvp:
