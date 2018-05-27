@@ -43,7 +43,6 @@ class Bot(object):
         logger.debug("Known events: {}".format(self.events))
         logger.debug("Env: {}".format(environ.items()))
 
-
     def _handle_event(self, event: Event):
         cet = timezone(timedelta(0, 3600), "CET")
         # Check for new event
@@ -89,23 +88,24 @@ class Bot(object):
                 cancels.append(member_id)
                 cancel_names.append(member_name)
 
-        if newcomers or cancels:
-            spots_left = int(event.rsvp_limit) - int(event.yes_rsvp_count) if event.rsvp_limit else 'Unknown'
+        if cancels:
+            logger.info("Cancellations found: {}".format(cancels))
+            event.participants = [p for p in event.participants if p not in cancels]
+            spots_left = int(event.rsvp_limit) - len(event.participants) if event.rsvp_limit else 'Unknown'
+            self.chat.new_rsvp(', '.join(cancel_names), "no", event_name, spots_left, event.waitlist_count, channel)
+            logger.debug("Participant list: {}".format(event.participants))
+            return
 
-            if cancels:
-                logger.info("Cancellations found: {}".format(cancels))
-                self.chat.new_rsvp(', '.join(cancel_names), "no", event_name, spots_left, event.waitlist_count, channel)
-                event.participants = [p for p in event.participants if p not in cancels]
-                logger.debug("Participant list: {}".format(event.participants))
+        if newcomers:
+            logger.info("Newcomers found: {}".format(newcomers))
+            event.participants += newcomers
+            spots_left = int(event.rsvp_limit) - len(event.participants) if event.rsvp_limit else 'Unknown'
+            self.chat.new_rsvp(', '.join(newcomer_names), "yes", event_name, spots_left, event.waitlist_count,
+                               channel)
+            logger.debug("Participant list: {}".format(event.participants))
+            return
 
-            if newcomers:
-                logger.info("Newcomers found: {}".format(newcomers))
-                self.chat.new_rsvp(', '.join(newcomer_names), "yes", event_name, spots_left, event.waitlist_count,
-                                   channel)
-                event.participants += newcomers
-                logger.debug("Participant list: {}".format(event.participants))
-        else:
-            logger.info("No changes for {}".format(event_name))
+        logger.info("No changes for {}".format(event_name))
 
     def _check_for_greeting(self, sentence):
         """If any of the words in the user's input was a greeting, return a greeting response"""
@@ -303,6 +303,7 @@ class Bot(object):
                 elif command.lower().startswith("add table"):
                     response = self._add_table(command, channel_id)
                 else:
+                    thread = None
                     response = self._check_for_greeting(command) if self._check_for_greeting(
                         command) else random.choice(
                         unknown_responses)

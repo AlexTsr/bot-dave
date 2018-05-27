@@ -95,7 +95,7 @@ class TrelloBoard(object):
             logger.debug("Member {} does not exist in {}. Adding them.".format(member_id, board_name))
             rsvp_list = board.list_lists(list_filter="open")[0]
             logger.debug("RSVP list for {}: {}".format(board_name, rsvp_list))
-            rsvp_list.add_card(name=name, desc=member_id)
+            rsvp_list.add_card(name=name, desc=str(member_id))
 
     def cancel_rsvp(self, member_id, board_name):
         logger.debug("Canceling RSVP for members id {} at {}".format(member_id, board_name))
