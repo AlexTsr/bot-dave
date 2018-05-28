@@ -51,6 +51,7 @@ class Bot(object):
         channel = channel_for_venue.get(venue)
         newcomers = []
         cancels = []
+        waitlist_names = []
         newcomer_names = []
         cancel_names = []
 
@@ -68,11 +69,14 @@ class Bot(object):
                 self.trello.cancel_rsvp(member_id, board_name=event_name)
                 cancels.append(member_id)
                 cancel_names.append(member_name)
+            elif rsvp.response == "waitlist":
+                waitlist_names.append(member_name)
+
+        spots_left = int(event.rsvp_limit) - int(event.yes_rsvp_count) if event.rsvp_limit else 'Unknown'
 
         if cancels:
             logger.info("Cancellations found: {}".format(cancels))
             event.participants = [p for p in event.participants if p not in cancels]
-            spots_left = int(event.rsvp_limit) - len(event.participants) if event.rsvp_limit else 'Unknown'
             self.chat.new_rsvp(', '.join(cancel_names), "no", event_name, spots_left, event.waitlist_count, channel)
             logger.debug("Participant list: {}".format(event.participants))
             return
@@ -80,11 +84,14 @@ class Bot(object):
         if newcomers:
             logger.info("Newcomers found: {}".format(newcomers))
             event.participants += newcomers
-            spots_left = int(event.rsvp_limit) - len(event.participants) if event.rsvp_limit else 'Unknown'
             self.chat.new_rsvp(', '.join(newcomer_names), "yes", event_name, spots_left, event.waitlist_count,
                                channel)
             logger.debug("Participant list: {}".format(event.participants))
             return
+
+        # if waitlist_names:
+        #     self.chat.new_rsvp(', '.join(waitlist_names), "waitlist", event_name, spots_left, event.waitlist_count,
+        #                        channel)
 
         logger.info("No changes for {}".format(event_name))
 
