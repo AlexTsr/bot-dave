@@ -12,7 +12,6 @@ from dave.data_types import Event
 from dave.log import logger
 from dave.meetup import MeetupGroup
 from dave.slack import Slack
-from dave.store import Store
 from dave.trello_boards import TrelloBoard
 from dave.exceptions import NoBoardError
 
@@ -32,51 +31,34 @@ class Bot(object):
         self.storg = MeetupGroup(meetup_key, group_id)
         self.chat = Slack(slack_token, bot_id)
         self.trello = TrelloBoard(api_key=trello_key, token=trello_token)
-        self.ds = Store()
         with open("dave/resources/phrases.json", "r") as phrases:
             self._phrases = json.loads(phrases.read())
-        if self.storg.upcoming_events:
-            current_event_ids = [e.event_id for e in self.storg.upcoming_events]
-            self.events = self.ds.retrieve_events(current_event_ids)
-        else:
-            self.events = {}
-        logger.debug("Known events: {}".format(self.events))
-        logger.debug("Env: {}".format(environ.items()))
 
     def _handle_event(self, event: Event):
         cet = timezone(timedelta(0, 3600), "CET")
         # Check for new event
-        event_id = event.event_id
-        if event_id not in self.events.keys():
+        event_names = [b.name for b in self.trello.boards]
+        if event.name not in event_names:
             logger.info("New event found: {}".format(event.name))
-            event_date = int(event.time) / 1000
-            event_date = datetime.fromtimestamp(event_date, tz=cet).strftime('%A %B %d %H:%M')
-
-            self.chat.new_event(event.name, event_date, event.venue["name"], event.event_url)
+            self.chat.message("Woohoo! We've got a new event coming up! :party_parrot:\n{}".format(event.event_url),
+                              channel="#announcements")
             self.trello.create_board(event.name, team_name=self.team_name)
-            self.events[event_id] = event
 
     def _handle_rsvps(self, event: Event):
-        event_id = event.event_id
         event_name = event.name
         venue = event.venue["name"]
         channel_for_venue = {"STORG Clubhouse": "#storg-south", "STORG Northern Clubhouse": "#storg-north"}
         channel = channel_for_venue.get(venue)
         newcomers = []
         cancels = []
+        waitlist_names = []
         newcomer_names = []
         cancel_names = []
 
-        for rsvp in self.storg.rsvps(event_id):
+        for rsvp in self.storg.rsvps(event.event_id):
             member_name = rsvp.member["name"]
             member_id = rsvp.member["member_id"]
-            try:
-                event = self.events[event_id]
-                known_participants = event.participants
-            except KeyError:
-                logger.error("Event {} not found in stored events".format(event_id))
-                logger.error("Known events: {}".format(self.events))
-                continue
+            known_participants = self.trello.participants(event.name)
 
             if member_id not in known_participants and rsvp.response == "yes":
                 self.trello.add_rsvp(name=member_name, member_id=member_id, board_name=event_name)
@@ -87,11 +69,14 @@ class Bot(object):
                 self.trello.cancel_rsvp(member_id, board_name=event_name)
                 cancels.append(member_id)
                 cancel_names.append(member_name)
+            elif rsvp.response == "waitlist":
+                waitlist_names.append(member_name)
+
+        spots_left = int(event.rsvp_limit) - int(event.yes_rsvp_count) if event.rsvp_limit else 'Unknown'
 
         if cancels:
             logger.info("Cancellations found: {}".format(cancels))
             event.participants = [p for p in event.participants if p not in cancels]
-            spots_left = int(event.rsvp_limit) - len(event.participants) if event.rsvp_limit else 'Unknown'
             self.chat.new_rsvp(', '.join(cancel_names), "no", event_name, spots_left, event.waitlist_count, channel)
             logger.debug("Participant list: {}".format(event.participants))
             return
@@ -99,11 +84,14 @@ class Bot(object):
         if newcomers:
             logger.info("Newcomers found: {}".format(newcomers))
             event.participants += newcomers
-            spots_left = int(event.rsvp_limit) - len(event.participants) if event.rsvp_limit else 'Unknown'
             self.chat.new_rsvp(', '.join(newcomer_names), "yes", event_name, spots_left, event.waitlist_count,
                                channel)
             logger.debug("Participant list: {}".format(event.participants))
             return
+
+        # if waitlist_names:
+        #     self.chat.new_rsvp(', '.join(waitlist_names), "waitlist", event_name, spots_left, event.waitlist_count,
+        #                        channel)
 
         logger.info("No changes for {}".format(event_name))
 
@@ -126,12 +114,10 @@ class Bot(object):
     def _next_event_info(self):
         try:
             next_event = self.storg.next_event
-            participants = self.events[next_event.event_id].participants
             event_time = next_event.time / 1000
             date = datetime.fromtimestamp(event_time).strftime('%A %B %d at %H:%M')
             name = next_event.name
-            msg = "Our next event is *{}*, on *{}* and " \
-                  "there are *{}* people joining".format(name, date, len(participants))
+            msg = "Our next event is *{}* on {}. Info and RSVP at {}".format(name, date, next_event.event_url)
         except IndexError:
             msg = "I can't find any event :disappointed:"
         return msg
@@ -139,14 +125,11 @@ class Bot(object):
     def _all_events_info(self):
         intro = ["Here are our next events.\n"]
         msgs = []
-        for event in self.events.values():
-            participants = event.participants
-            print(participants)
+        for event in self.storg.upcoming_events:
             event_time = event.time / 1000
             date = datetime.fromtimestamp(event_time).strftime('%A %B %d at %H:%M')
             name = event.name
-            msg = "*{}*,\non *{}* with *{}* " \
-                  "people joining".format(name, date, len(participants))
+            msg = "*{}*, on {}. Info and RSVP at {}".format(name, date, event.event_url)
             msgs.append(msg)
         if msgs:
             return '\n\n'.join(intro + msgs)
@@ -215,10 +198,6 @@ class Bot(object):
             self._handle_rsvps(event)
         logger.info("Done checking")
 
-    def save_events(self):
-        logger.debug("Saving events")
-        self.ds.store_events(self.events)
-
     def monitor_events(self, sleep_for=900):
         while True:
             try:
@@ -226,7 +205,7 @@ class Bot(object):
             except Exception as e:
                 self.chat.message("Swallowed exception at check_events: {}".format(e), self.lab_channel_id)
                 logger.error("Swallowed exception at check_events: {}".format(e))
-            self.save_events()
+                raise e
             sleep(sleep_for)
 
     def read_chat(self, tasks):
@@ -234,15 +213,6 @@ class Bot(object):
 
     def respond(self, response, channel, attachments=None, thread=None):
         self.chat.message(content=response, channel=channel, attachments=attachments, ts=thread)
-
-    # TODO: Move to MeetupGroup
-    @property
-    def next_event(self):
-        if not self.storg.upcoming_events:
-            return None
-        self.storg.upcoming_events.sort(key=lambda d: d.time)
-        next_id = self.storg.upcoming_events[0].event_id
-        return self.events[next_id]
 
     def table(self, event_name, table_title):
         return self.trello.table(event_name, table_title)

@@ -24,8 +24,8 @@ class MeetupGroup:
         :return: a list of all the upcoming events
         """
         params = {"key": self.api_key, "group_id": self.group_id, "status": "upcoming"}
-        upcoming_events = self._get("/2/events", params)
-        return [Event(**e) for e in upcoming_events]
+        events = self._get("/2/events", params)
+        return [Event(**e) for e in events]
 
     @property
     def next_event(self) -> Event:
