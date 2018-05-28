@@ -1,5 +1,6 @@
 from collections import OrderedDict
 from functools import lru_cache
+from time import sleep
 from typing import List, Optional, Dict
 
 from trello import TrelloClient, Card, Board
@@ -63,6 +64,7 @@ class TrelloBoard(object):
 
         for l in board.list_lists(list_filter="open"):
             for card in l.list_cards():
+                sleep(0.1)
                 if card.desc == member_id:
                     return card
 
@@ -78,6 +80,7 @@ class TrelloBoard(object):
         members = []
         for l in board.list_lists(list_filter="open"):
             for card in l.list_cards():
+                sleep(0.1)
                 try:
                     members.append(int(card.desc))
                 except ValueError:
@@ -133,6 +136,7 @@ class TrelloBoard(object):
             table = GameTable(number=table_number, title=title)
 
             for card in board_list.list_cards():
+                sleep(0.1)
                 if card.name == "Info":
                     info_card = card
                 elif card.labels:
