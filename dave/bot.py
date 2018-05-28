@@ -281,7 +281,6 @@ class Bot(object):
             except Exception as e:
                 self.chat.message("Swallowed exception at conversation: {}".format(e), self.lab_channel_id)
                 logger.error("Swallowed exception at conversation: {}".format(e))
-                raise e
 
     def _add_table(self, command, channel_id):
         title, info = command.split(":", 1)
