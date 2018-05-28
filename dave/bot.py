@@ -254,7 +254,7 @@ class Bot(object):
                                                     request=request, detail=True, table_number=table_number)
                 elif "next event" in command.lower() and "events" not in command.lower():
                     response = self._next_event_info()
-                    thread=None
+                    thread = None
                 elif "events" in command.lower():
                     thread = None
                     response = self._all_events_info()

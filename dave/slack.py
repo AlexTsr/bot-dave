@@ -51,13 +51,21 @@ class Slack(object):
         :return: None
         """
         logger.debug("Sending {} to {}".format(content[0:10], channel))
-        self.sc.api_call(
-            "chat.postMessage",
-            as_user=True,
-            channel=channel,
-            text=content,
-            thread_ts=ts,
-            attachments=attachments)
+        if ts:
+            self.sc.api_call(
+                "chat.postMessage",
+                as_user=True,
+                channel=channel,
+                text=content,
+                thread_ts=ts,
+                attachments=attachments)
+        else:
+            self.sc.api_call(
+                "chat.postMessage",
+                as_user=True,
+                channel=channel,
+                text=content,
+                attachments=attachments)
 
     def send_attachment(self, message, channel, title=None, colour="#808080", extra_options=None):
         if not extra_options:
