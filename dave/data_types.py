@@ -61,11 +61,10 @@ class GameTable:
     def __init__(self, number: int, title: str, blurb: str = "", max_players: int = 9999, players: List[str] = None,
                  gm: str = None, system: str = None) -> None:
         self.number = int(number)
-        self._players = []
+        self._players = players or []
         self.system = system
         self.gm = gm
         self.max_players = max_players
-        self.players = players
         self.blurb = blurb
         self.title = title
 

@@ -3,11 +3,52 @@ from functools import lru_cache
 from time import sleep
 from typing import List, Optional, Dict
 
+import requests
+from os import environ
 from trello import TrelloClient, Card, Board
 
 from dave.data_types import GameTable
 from dave.exceptions import NoBoardError
 from dave.log import logger
+
+
+class GameTables:
+    def __init__(self, token, key):
+        self.base_url = "https://api.trello.com/1/"
+        self.payload = {"key": key, "token": token}
+
+    def _get(self, path):
+        url = self.base_url + path
+        r = requests.get(url, params=self.payload)
+        return r.json()
+
+    @property
+    def boards(self):
+        raise NotImplementedError
+
+    def participants(self, board_name):
+        raise NotImplementedError
+
+    def create_board(self, board_name, team_name=None):
+        raise NotImplementedError
+
+    def add_rsvp(self, name, member_id, board_name):
+        raise NotImplementedError
+
+    def cancel_rsvp(self, member_id, board_name):
+        raise NotImplementedError
+
+    def tables_for_event(self, event_name: str) -> Dict[int, GameTable]:
+        raise NotImplementedError
+
+    def table(self, board_name: str, table_number: int) -> GameTable:
+        raise NotImplementedError
+
+    def add_table(self, title, info, board_url):
+        raise NotImplementedError
+
+    def add_to_waitlist(self, name, member_id, board_name):
+        raise NotImplementedError
 
 
 class TrelloBoard(object):
@@ -18,6 +59,10 @@ class TrelloBoard(object):
         :param token:  (str) Your Trello token
         """
         self.tc = TrelloClient(api_key=api_key, token=token)
+        logger.debug(self.tc.info_for_all_boards(actions="all"))
+
+    def all(self):
+        return self.tc.info_for_all_boards(actions="all")
 
     @property
     def boards(self) -> List[Board]:
@@ -171,3 +216,10 @@ class TrelloBoard(object):
         info = "\n\nPlayers:".join(info.split("Players:"))
         table.add_card("Info", desc=info)
         return "Table *{}* added to *{}*".format(title, board.name)
+
+
+if __name__ == '__main__':
+    trello_key = environ["TRELLO_API_KEY"]
+    trello_token = environ["TRELLO_TOKEN"]
+    gt = GameTables(trello_token, trello_key)
+    gt._get("members/me/boards")
