@@ -12,7 +12,7 @@ from dave.data_types import Event
 from dave.log import logger
 from dave.meetup import MeetupGroup
 from dave.slack import Slack
-from dave.trello_boards import TrelloBoard
+from dave.trello_boards import TableManifest
 from dave.exceptions import NoBoardError
 
 sleep_time = int(environ.get('CHECK_TIME', '600'))
@@ -30,12 +30,11 @@ class Bot(object):
         self.team_name = environ["TRELLO_TEAM"]
         self.storg = MeetupGroup(meetup_key, group_id)
         self.chat = Slack(slack_token, bot_id)
-        self.trello = TrelloBoard(api_key=trello_key, token=trello_token)
+        self.trello = TableManifest(api_key=trello_key, token=trello_token)
         with open("dave/resources/phrases.json", "r") as phrases:
             self._phrases = json.loads(phrases.read())
 
     def _handle_event(self, event: Event):
-        cet = timezone(timedelta(0, 3600), "CET")
         # Check for new event
         event_names = [b.name for b in self.trello.boards]
         if event.name not in event_names:
@@ -54,6 +53,7 @@ class Bot(object):
         waitlist_names = []
         newcomer_names = []
         cancel_names = []
+        spots_left = int(event.rsvp_limit) - int(event.yes_rsvp_count) if event.rsvp_limit else 'Unknown'
 
         for rsvp in self.storg.rsvps(event.event_id):
             member_name = rsvp.member["name"]
@@ -64,7 +64,6 @@ class Bot(object):
                 self.trello.add_rsvp(name=member_name, member_id=member_id, board_name=event_name)
                 newcomers.append(member_id)
                 newcomer_names.append(member_name)
-                sleep(0.2)
             elif member_id in known_participants and rsvp.response == "no":
                 self.trello.cancel_rsvp(member_id, board_name=event_name)
                 cancels.append(member_id)
@@ -72,22 +71,10 @@ class Bot(object):
             elif rsvp.response == "waitlist":
                 waitlist_names.append(member_name)
 
-        spots_left = int(event.rsvp_limit) - int(event.yes_rsvp_count) if event.rsvp_limit else 'Unknown'
-
-        if cancels:
-            logger.info("Cancellations found: {}".format(cancels))
+        if cancel_names:
             self.chat.new_rsvp(', '.join(cancel_names), "no", event_name, spots_left, event.waitlist_count, channel)
-            # logger.debug("Participant list: {}".format(known_participants))
-            return
-
-        if newcomers:
-            logger.info("Newcomers found: {}".format(newcomers))
-            self.chat.new_rsvp(', '.join(newcomer_names), "yes", event_name, spots_left, event.waitlist_count,
-                               channel)
-            # logger.debug("Participant list: {}".format(known_participants))
-            return
-
-        logger.info("No changes for {}".format(event_name))
+        if newcomer_names:
+            self.chat.new_rsvp(', '.join(newcomer_names), "yes", event_name, spots_left, event.waitlist_count, channel)
 
     def _check_for_greeting(self, sentence):
         """If any of the words in the user's input was a greeting, return a greeting response"""
@@ -159,20 +146,20 @@ class Bot(object):
             if detail and table.number != 9999:
                 table_title = "{}. {}".format(table.number, table.title)
                 text = table.blurb
-                joining = "*GM:* {}; *Joining ({} out of {} max):* {}".format(table.gm, len(table.players),
+                joining = "*GM:* {}; *Joining ({} out of {} max):* {}".format(table.gm.name, len(table.players),
                                                                               table.max_players,
-                                                                              self._natural_join(table.players, ' '))
+                                                                              self._natural_join(table.player_names, ' '))
             elif table.number != 9999:
                 table_title = "{}. {}".format(table.number, table.title)
                 text = "_Ask *table {}* to get details for this table " \
                        "or *detailed table status* to get details for all tables_".format(table.number)
                 joining = "*GM:* {}; *Joining ({} out of {} max):* {}".format(table.gm, len(table.players), table.max_players,
-                                                                              self._natural_join(table.players, ' '))
+                                                                              self._natural_join(table.player_names, ' '))
             else:
                 table_title = table.title
                 text = ""
                 color = ""
-                joining = "*{} left:* {}".format(len(table.players), self._natural_join(table.players, ' '))
+                joining = "*{} left:* {}".format(len(table.players), self._natural_join(table.player_names, ' '))
 
             attachment = {
                 "title": table_title,
@@ -220,7 +207,7 @@ class Bot(object):
                 if command.startswith("help"):
                     response = "Hold on tight, I'm coming!\nJust kidding!\n\n{}".format(
                         self._phrases["responses"]["help"])
-                    thread=None
+                    thread = None
                 elif command.lower().startswith("table status"):
                     response = "Open tables"
                     attachments = self._tables_info(channel=self.chat.channel_name(channel_id),
@@ -275,6 +262,7 @@ class Bot(object):
             except Exception as e:
                 self.chat.message("Swallowed exception at conversation: {}".format(e), self.lab_channel_id)
                 logger.error("Swallowed exception at conversation: {}".format(e))
+                raise e
 
     def _add_table(self, command, channel_id):
         title, info = command.split(":", 1)

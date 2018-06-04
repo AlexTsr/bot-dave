@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 import unittest
-
 from data_types import Event, Member, GameTable, Rsvp
 
 
