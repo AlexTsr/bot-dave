@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import unittest
-from data_types import Event, Member, GameTable, Rsvp
+from data_types import Event, GuildMember, GameTable, Rsvp
 
 
 class TestBot(unittest.TestCase):
@@ -11,7 +11,7 @@ class TestBot(unittest.TestCase):
                            waitlist_count=10, yes_rsvp_count=40, announced=True,
                            event_url="https://www.example.com/Stockholm-Roleplaying-Guild/events/249792023/",
                            venue={"name": "STORG Clubhouse"})
-        self.member = Member(name="Dave", meetup_id=100001, slack_id="u19292")
+        self.member = GuildMember(name="Dave", meetup_id=100001, slack_id="u19292")
         self.table = GameTable(number=1, title="Awesome Game", blurb="Long text goes here", max_players=4,
                                players=["Dave", "John", "Jane"], gm="Doe", system="D&D")
         self.rsvp = Rsvp(venue="STORG Clubhouse", response="yes", answers=["My email is foo@example.com"],

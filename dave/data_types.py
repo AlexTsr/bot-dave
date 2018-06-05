@@ -4,9 +4,9 @@ from typing import List, NamedTuple
 
 Player = namedtuple("Player", "name,id")
 
-class Member:
+class GuildMember:
     """
-    Class to create Member(name, meetup_id, slack_id, sverok_id, group_id) objects
+    Class to create GuildMember(name, meetup_id, slack_id, sverok_id, group_id) objects
     """
 
     def __init__(self, name: str, meetup_id: int, slack_id: str = None, sverok_id: str = None,
@@ -18,7 +18,7 @@ class Member:
         self.meetup_id = meetup_id
 
     def __repr__(self):
-        return "Member(meetup_id={self.meetup_id}, slack_id={self.slack_id}, sverok_id={self.sverok_id}, group_id={" \
+        return "GuildMember(meetup_id={self.meetup_id}, slack_id={self.slack_id}, sverok_id={self.sverok_id}, group_id={" \
                "self.group_id}) "
 
 

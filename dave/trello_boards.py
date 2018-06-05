@@ -9,7 +9,7 @@ from dave.log import logger
 
 
 class TableManifest:
-    """Connect to trello through https://developers.trello.com/reference/  """
+    """Connect to trello through https://developers.trello.com/reference/"""
 
     def __init__(self, api_key, token):
         self.base_url = "https://api.trello.com/1/"
@@ -116,7 +116,8 @@ class TableManifest:
                         table.add_player(player(card["name"], int(card["desc"])))
             else:
                 table.add_player(player(card["name"], int(card["desc"])))
-        return {v.number: v for v in tables.values()}
+        tables_by_number = {v.number: v for v in tables.values()}
+        return OrderedDict(sorted(tables_by_number.items()))
 
     def create_board(self, board_name, team_name=None):
         if not self.board(board_name):
@@ -250,7 +251,7 @@ class TableManifest:
 #             return
 #
 #         if not self._member(member_id, board_name):
-#             logger.debug("Member {} does not exist in {}. Adding them.".format(member_id, board_name))
+#             logger.debug("GuildMember {} does not exist in {}. Adding them.".format(member_id, board_name))
 #             rsvp_list = board.list_lists(list_filter="open")[0]
 #             logger.debug("RSVP list for {}: {}".format(board_name, rsvp_list))
 #             rsvp_list.add_card(name=name, desc=str(member_id))
