@@ -111,21 +111,6 @@ class Slack(object):
                     logger.debug(output)
         return None, None, None, None
 
-    def new_event(self, event_name, date, venue, url, channel="#announcements"):
-        """
-        Announces a new event on :channel: using an attachment
-        :param event_name: (str) The event's title
-        :param date: (str) The event's date formatted the way we want to be presented
-        :param venue: (str) The venue of the event
-        :param url: (str) The event's URL. Used to create a hyperlink.
-        :param channel: (str) The channel where to make the announcement. Needs a leading #
-        :return: None
-        """
-        text = "{}\n{}".format(date, venue)
-        extra_options = {"title": event_name, "title_link": url}
-        title = "Woohoo! We've got a new event coming up!"
-        self.send_attachment(title=title, message=text, channel=channel, extra_options=extra_options)
-
     def new_rsvp(self, names, response, event_name, spots, waitlist=0, channel="#dungeon_lab"):
         """Announces a new RSVP on :channel:
 
@@ -161,15 +146,3 @@ class Slack(object):
                     logger.debug("Command found; text: {}, channel: {}, user_id: {}, thread: {}".format(command, channel, user_id, thread))
                     queue.put((command, channel, user_id, thread))
                 sleep(read_delay)
-
-    def userid_info(self, user_id):
-        logger.debug("Looking for user {}".format(user_id))
-        info = self.sc.api_call(
-            "users.info",
-            user=user_id
-        )
-        logger.debug("user info: {}".format(info))
-        if info["ok"]:
-            return info["user"]
-        else:
-            logger.warn(info["error"])

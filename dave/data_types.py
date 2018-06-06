@@ -90,11 +90,11 @@ class GameTable:
         """
         return self._players
 
-    @players.setter
-    def players(self, value):
-        if value is None:
-            value = []
-        self._players = value
+    # @players.setter
+    # def players(self, value):
+    #     if value is None:
+    #         value = []
+    #     self._players = value
 
     @property
     def player_ids(self):
@@ -114,7 +114,7 @@ class GameTable:
 
 
 class Board:
-    def __init__(self, name, board_id, org_id, url, lists):
+    def __init__(self, name: str, board_id: str, org_id: str, url: str, lists: List[dict]) -> None:
         self.lists = lists
         self.url = url
         self.org_id = org_id
