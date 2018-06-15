@@ -76,22 +76,16 @@ class Bot(object):
 
         if cancels:
             logger.info("Cancellations found: {}".format(cancels))
-            event.participants = [p for p in event.participants if p not in cancels]
             self.chat.new_rsvp(', '.join(cancel_names), "no", event_name, spots_left, event.waitlist_count, channel)
-            logger.debug("Participant list: {}".format(event.participants))
+            # logger.debug("Participant list: {}".format(known_participants))
             return
 
         if newcomers:
             logger.info("Newcomers found: {}".format(newcomers))
-            event.participants += newcomers
             self.chat.new_rsvp(', '.join(newcomer_names), "yes", event_name, spots_left, event.waitlist_count,
                                channel)
-            logger.debug("Participant list: {}".format(event.participants))
+            # logger.debug("Participant list: {}".format(known_participants))
             return
-
-        # if waitlist_names:
-        #     self.chat.new_rsvp(', '.join(waitlist_names), "waitlist", event_name, spots_left, event.waitlist_count,
-        #                        channel)
 
         logger.info("No changes for {}".format(event_name))
 
