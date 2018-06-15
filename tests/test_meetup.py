@@ -70,7 +70,6 @@ class TestMeetup(unittest.TestCase):
     def test_upcoming_events_get(self):
         params = {"key": self.api_key, "group_id": self.group_id, "status": "upcoming"}
         with mock.patch.object(self.meetup, '_get', return_value=self._get_events) as method:
-            # noinspection PyStatementEffect
             self.meetup.upcoming_events
             method.assert_called_once_with("/2/events", params)
 

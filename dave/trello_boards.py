@@ -152,18 +152,3 @@ class TableManifest:
 
     def _labels_of(self, board_name):
         return self._get("boards/{}/labels".format(self._board_id_of(board_name)))
-
-
-if __name__ == '__main__':
-    trello_key = environ["TRELLO_API_KEY"]
-    trello_token = environ["TRELLO_TOKEN"]
-    gt = TableManifest(trello_key, trello_token)
-    event_name = "Meetup Template"
-    # print(gt.table_list(event_name))
-    # print(gt.tables_for_event(event_name))
-    # print(gt.cards(event_name))
-    # print(gt.org_id)
-    # print(gt.create_board("Foo"))
-    # print(gt.add_rsvp("bar", 101, "Foo"))
-    for board in gt.boards:
-        print(board.lists)
