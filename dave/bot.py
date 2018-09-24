@@ -67,7 +67,7 @@ class Bot(object):
             participants = self.tables.participants_of(event.name)
 
             if member_id not in participants and rsvp.response == "yes":
-                self.tables.add_rsvp(
+                self.tables.add_participant(
                     name=member_name, member_id=member_id, event_name=event.name
                 )
                 new_names.append(member_name)
@@ -75,6 +75,7 @@ class Bot(object):
                 self.tables.cancel_rsvp(member_id, board_name=event.name)
                 canceled_names.append(member_name)
             elif rsvp.response == "waitlist":
+                self.tables.add_to_waitlist(member_name=member_name, member_id=member_id, event_name=event.name)
                 waitlist_names.append(member_name)
 
         if canceled_names:
@@ -90,6 +91,15 @@ class Bot(object):
             self.chat.new_rsvp(
                 names=", ".join(new_names),
                 response="yes",
+                event_name=event.name,
+                spots=spots_left,
+                waitlist=event.waitlist_count,
+                channel=channel,
+            )
+        if waitlist_names:
+            self.chat.new_rsvp(
+                names=", ".join(waitlist_names),
+                response="waitlist",
                 event_name=event.name,
                 spots=spots_left,
                 waitlist=event.waitlist_count,

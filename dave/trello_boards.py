@@ -1,6 +1,6 @@
 from collections import OrderedDict
 from os import environ
-from typing import Optional, Dict, List
+from typing import Optional, Dict, List, Set
 
 import requests
 
@@ -118,16 +118,21 @@ class TableManifest:
         return tables
 
     def cards(self, board_name: str) -> List[dict]:
+        """ https://developers.trello.com/v1.0/reference#boardsboardidcardsfilter
+        :param board_name:
+        :return:
+        """
         board_id = self._board_id_of(board_name)
         path = f"boards/{board_id}/cards/visible"
         return self._get(path)
 
-    def participants_of(self, event_name: str) -> List[int]:
-        resp: List[int] = []
+    def participants_of(self, event_name: str) -> Set[int]:
+        resp: Set[int] = set()
         for t in self.tables_for_event(event_name).values():
-            resp += t.player_ids
-            if t.gm:
-                resp.append(t.gm.meetup_id)
+            if t.player_ids:
+                resp |= t.player_ids
+                if t.gm.meetup_id:
+                    resp.add(t.gm.meetup_id)
         return resp
 
     def tables_for_event(self, event_name: str) -> Dict[int, GameTable]:
@@ -148,7 +153,7 @@ class TableManifest:
                     if label["name"] == "GM":
                         table.gm = Player(entry["name"], int(entry["desc"]))
                     else:
-                        table.add_player(Player(entry["name"], int(entry["desc"])))
+                        table.add_player(Player(f"{entry['name']} ({label['name']})", int(entry["desc"])))
             else:
                 table.add_player(Player(entry["name"], int(entry["desc"])))
         tables_by_number = {v.number: v for v in tables.values()}
@@ -165,7 +170,7 @@ class TableManifest:
             return self._post("boards", payload)
         return True
 
-    def add_rsvp(self, name: str, member_id: int, event_name: str) -> None:
+    def add_participant(self, name: str, member_id: int, event_name: str) -> None:
         if member_id not in self.participants_of(event_name) and member_id not in self.waitlist_of(event_name):
             self._add_card(name, str(member_id), "RSVPed", event_name)
         elif member_id in self.waitlist_of(event_name):
@@ -183,7 +188,8 @@ class TableManifest:
     def add_table(self, title, info, board_url):
         raise NotImplementedError
 
-    def add_to_waitlist(self, member_id: int, event_name: str) -> None:
+    def add_to_waitlist(self, member_name: str, member_id: int, event_name: str) -> None:
+        self.add_participant(member_name, member_id, event_name)
         card_id = self._card_id_of(member_id, event_name)
         if card_id:
             self._add_label("Waitlist", card_id, event_name)
@@ -192,8 +198,13 @@ class TableManifest:
         board_id = self._board_id_of(board_name)
         return self._get(f"boards/{board_id}/labels")
 
-    def waitlist_of(self, event_name: str) -> List[int]:
-        raise NotImplementedError
+    def waitlist_of(self, event_name: str) -> Set[int]:
+        wl = set()
+        for t in self.tables_for_event(event_name).values():
+            for player in t.players:
+                if player.name.endswith("(Waitlist)"):
+                    wl.add(player.meetup_id)
+        return wl
 
     def remove_from_waitlist(self, member_id: int, event_name: str) -> None:
         card_id = self._card_id_of(member_id, event_name)
@@ -211,8 +222,13 @@ class TableManifest:
             return
         self._delete(f"cards/{card_id}/idLabels/{label_id}")
 
+    def _labels(self, card_id):
+        return self._get(f"cards/{card_id}/labels")
+
 
 if __name__ == '__main__':
     tb = TableManifest(api_key=environ["TRELLO_API_KEY"], token=environ["TRELLO_TOKEN"])
-    # tb.add_to_waitlist(member_id=62568802, event_name="STORG Spooooky October Session")
+    tb.add_to_waitlist(member_name="Alex T.", member_id=62568802, event_name="STORG Spooooky October Session")
+    print(tb.waitlist_of("STORG Spooooky October Session"))
     tb.remove_from_waitlist(member_id=62568802, event_name="STORG Spooooky October Session")
+    print(tb.waitlist_of("STORG Spooooky October Session"))

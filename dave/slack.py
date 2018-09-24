@@ -123,7 +123,7 @@ class Slack(object):
         :return: None
         """
         colour = "#36a64f" if response == "yes" else "b20000"
-        waitlist_msg = "\n{} in the waiting list" if waitlist else ""
+        waitlist_msg = f"\n{waitlist} in the waiting list" if waitlist else ""
         text = "{} replied {} for *{}*\n{} spots left{}".format(names, response, event_name, spots, waitlist_msg)
         if response == "waitlist":
             text = "{} joined the waitlist for the {}\n{} in the waitlist".format(names, event_name, waitlist)

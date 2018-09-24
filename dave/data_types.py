@@ -1,6 +1,6 @@
 """ New data types for our special, little needs"""
 from collections import namedtuple
-from typing import List
+from typing import List, Set
 
 Player = namedtuple("Player", "name,meetup_id")
 
@@ -130,8 +130,8 @@ class GameTable:
     #     self._players = value
 
     @property
-    def player_ids(self) -> List[int]:
-        return [j for i, j in self.players]
+    def player_ids(self) -> Set[int]:
+        return {p for _, p in self.players}
 
     @property
     def player_names(self):
