@@ -64,7 +64,7 @@ class TestMeetup(unittest.TestCase):
                              'closed': False,
                              'idOrganization': '59da41cd2ff0a3440c843447',
                              'invited': False,
-                             'url': 'https://trello.com/b/ZQVnzhxB/address-book',
+                             'url': 'https://tables.com/b/ZQVnzhxB/address-book',
                              'subscribed': False,
                              'labelNames': {
                                  'green': '',
@@ -78,7 +78,7 @@ class TestMeetup(unittest.TestCase):
                                  'pink': '',
                                  'black': ''
                              },
-                             'shortUrl': 'https://trello.com/b/ZQVnzhxB',
+                             'shortUrl': 'https://tables.com/b/ZQVnzhxB',
                              'idTags': [],
                              'lists': [
                                  {
@@ -106,7 +106,7 @@ class TestMeetup(unittest.TestCase):
     def test_upcoming_events_get(self):
         params = {"filter": "open", "lists": "open"}
         with mock.patch.object(self.trello, '_get', return_value=self._get_orgs) as method:
-            self.trello.boards
+            self.trello.event_boards
             method.assert_called_once_with("members/me/boards", params=params)
 
 

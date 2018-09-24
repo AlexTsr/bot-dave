@@ -6,7 +6,7 @@ from dave.log import logger
 
 
 class Slack(object):
-    def __init__(self, slack_token, bot_id):
+    def __init__(self, slack_token: str, bot_id: str) -> None:
         """Creates a Slack connection object
 
         :param slack_token: (str) Your Slack API key

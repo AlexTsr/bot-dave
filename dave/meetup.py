@@ -1,5 +1,5 @@
 """ Module to get info from Meetup """
-from typing import List
+from typing import List, Optional
 
 import requests
 
@@ -9,6 +9,7 @@ from dave.log import logger
 
 class MeetupGroup:
     """ Creates a Meetup Group object """
+
     def __init__(self, api_key: str, group_id: int) -> None:
         """
         :param api_key: (str) The API key for your Meetup account
@@ -42,10 +43,12 @@ class MeetupGroup:
         return [Event(**e) for e in events]
 
     @property
-    def next_event(self) -> Event:
+    def next_event(self) -> Optional[Event]:
         """
         :return: the next event
         """
+        if not self.upcoming_events:
+            return None
         return sorted(self.upcoming_events, key=lambda event: event.time)[0]
 
     @property
