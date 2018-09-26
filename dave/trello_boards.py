@@ -77,7 +77,6 @@ class TableManifest:
             return None
         payload = {"value": label_id}
         try:
-            print(f"Adding label id {label_id} to {card_id}")
             self._post(f"cards/{card_id}/idLabels", payload)
         except Exception as e:
             print(e)
@@ -159,7 +158,7 @@ class TableManifest:
         tables_by_number = {v.number: v for v in tables.values()}
         return OrderedDict(sorted(tables_by_number.items()))
 
-    def create_event_board(self, board_name):
+    def create_event_board(self, board_name: str) -> bool:
         if not self.board(board_name):
             template = self._board_id_of("Meetup Template")
             payload = {"name": board_name, "defaultLabels": "true", "defaultLists": "false", "keepFromSource": "cards",
@@ -224,11 +223,3 @@ class TableManifest:
 
     def _labels(self, card_id):
         return self._get(f"cards/{card_id}/labels")
-
-
-if __name__ == '__main__':
-    tb = TableManifest(api_key=environ["TRELLO_API_KEY"], token=environ["TRELLO_TOKEN"])
-    tb.add_to_waitlist(member_name="Alex T.", member_id=62568802, event_name="STORG Spooooky October Session")
-    print(tb.waitlist_of("STORG Spooooky October Session"))
-    tb.remove_from_waitlist(member_id=62568802, event_name="STORG Spooooky October Session")
-    print(tb.waitlist_of("STORG Spooooky October Session"))

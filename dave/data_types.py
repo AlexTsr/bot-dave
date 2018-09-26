@@ -134,7 +134,7 @@ class GameTable:
         return {p for _, p in self.players}
 
     @property
-    def player_names(self):
+    def player_names(self) -> List[str]:
         return [i for i, j in self.players]
 
     @property
