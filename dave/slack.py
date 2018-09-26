@@ -1,12 +1,13 @@
 from os import environ
 from time import sleep
 from slackclient import SlackClient
+from typing import Optional, Dict, List
 
 from dave.log import logger
 
 
 class Slack(object):
-    def __init__(self, slack_token, bot_id):
+    def __init__(self, slack_token: str, bot_id: str) -> None:
         """Creates a Slack connection object
 
         :param slack_token: (str) Your Slack API key
@@ -34,7 +35,7 @@ class Slack(object):
             if channel["id"] == channel_id:
                 return channel["name"]
 
-    def channel_topic(self, channel_id):
+    def channel_topic(self, channel_id: str) -> Optional[str]:
         info = self.sc.api_call("channels.info", channel=channel_id)
         if info["ok"]:
             return info["channel"]["topic"]["value"]
@@ -42,7 +43,7 @@ class Slack(object):
             logger.critical("{}".format(info))
             raise ValueError
 
-    def message(self, content, channel, attachments=None, ts=None):
+    def message(self, content: str, channel: str, attachments: Optional[Dict] = None, ts: str = None) -> None:
         """Sends a simple message containing :content: to :channel:
 
         :param list attachments:
@@ -67,13 +68,14 @@ class Slack(object):
                 text=content,
                 attachments=attachments)
 
-    def send_attachment(self, message, channel, title=None, colour="#808080", extra_options=None):
+    def send_attachment(self, message: str, channel: str, title: Optional[str] = None,
+                        colour: Optional[str] = "#808080", extra_options: Optional[Dict] = None) -> None:
         if not extra_options:
             extra_options = {}
         attachment = [{"pretext": title, "color": colour, "text": message, **extra_options}]
         self._announcement(attachment, channel=channel)
 
-    def _announcement(self, attachment, channel="#small_council"):
+    def _announcement(self, attachment: List[dict], channel: Optional[str] = "#dungeon_lab") -> None:
         self.sc.api_call(
             "chat.postMessage",
             as_user=True,
@@ -111,22 +113,8 @@ class Slack(object):
                     logger.debug(output)
         return None, None, None, None
 
-    def new_event(self, event_name, date, venue, url, channel="#announcements"):
-        """
-        Announces a new event on :channel: using an attachment
-        :param event_name: (str) The event's title
-        :param date: (str) The event's date formatted the way we want to be presented
-        :param venue: (str) The venue of the event
-        :param url: (str) The event's URL. Used to create a hyperlink.
-        :param channel: (str) The channel where to make the announcement. Needs a leading #
-        :return: None
-        """
-        text = "{}\n{}".format(date, venue)
-        extra_options = {"title": event_name, "title_link": url}
-        title = "Woohoo! We've got a new event coming up!"
-        self.send_attachment(title=title, message=text, channel=channel, extra_options=extra_options)
-
-    def new_rsvp(self, names, response, event_name, spots, waitlist=0, channel="#dungeon_lab"):
+    def new_rsvp(self, names: str, response: str, event_name: str, spots: int, waitlist: Optional[int] = 0,
+                 channel: str = "#dungeon_lab") -> None:
         """Announces a new RSVP on :channel:
 
         :param waitlist: Number of people on the waiting list
@@ -138,8 +126,8 @@ class Slack(object):
         :return: None
         """
         colour = "#36a64f" if response == "yes" else "b20000"
-        waitlist_msg = "\n{} in the waiting list" if waitlist else ""
-        text = "{} replied {} for the {}\n{} spots left{}".format(names, response, event_name, spots, waitlist_msg)
+        waitlist_msg = f"\n{waitlist} in the waiting list" if waitlist else ""
+        text = "{} replied {} for *{}*\n{} spots left{}".format(names, response, event_name, spots, waitlist_msg)
         if response == "waitlist":
             text = "{} joined the waitlist for the {}\n{} in the waitlist".format(names, event_name, waitlist)
         self.send_attachment(title="New RSVP", message=text, colour=colour, channel=channel)
@@ -161,15 +149,3 @@ class Slack(object):
                     logger.debug("Command found; text: {}, channel: {}, user_id: {}, thread: {}".format(command, channel, user_id, thread))
                     queue.put((command, channel, user_id, thread))
                 sleep(read_delay)
-
-    def userid_info(self, user_id):
-        logger.debug("Looking for user {}".format(user_id))
-        info = self.sc.api_call(
-            "users.info",
-            user=user_id
-        )
-        logger.debug("user info: {}".format(info))
-        if info["ok"]:
-            return info["user"]
-        else:
-            logger.warn(info["error"])

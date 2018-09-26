@@ -26,3 +26,6 @@
 # mypy
 # IDE
 .idea/
+.mypy_cache/
+dave/__pycache__/
+venv/
